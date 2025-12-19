@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node / UI
+node_modules/
+dist/
+
+# Docker
+*.log
+
+# Env / secrets
+.env
+
+# Elastic / DB data
+pgdata/
+esdata/
+
+# OS
+.DS_Store

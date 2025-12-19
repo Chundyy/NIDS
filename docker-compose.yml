@@ -1,0 +1,91 @@
+version: "3.9"
+
+services:
+  api:
+    image: python:3.11-slim
+    container_name: ids_api
+    working_dir: /app
+    restart: unless-stopped
+    volumes:
+      - ./services/api:/app
+    command: bash -lc "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ES_URL: ${ES_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      - postgres
+      - elasticsearch
+    networks:
+      - idsnet
+
+  ui:
+    image: node:20-alpine
+    container_name: ids_ui
+    working_dir: /ui
+    restart: unless-stopped
+    volumes:
+      - ./services/ui:/ui
+    command: sh -lc "npm install -g serve && (test -d dist || (npm install && npm run build)) && serve -s dist -l 3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - idsnet
+
+  postgres:
+    image: postgres:15
+    container_name: ids_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: idsdb
+      POSTGRES_USER: ids
+      POSTGRES_PASSWORD: ids123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - idsnet
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    container_name: ids_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    restart: unless-stopped
+    networks:
+      - idsnet
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    container_name: ids_kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=${ES_URL}
+    networks:
+      - idsnet
+
+networks:
+  idsnet:
+
+volumes:
+  pgdata:
+  esdata:

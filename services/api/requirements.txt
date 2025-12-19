@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+psycopg2-binary
+elasticsearch==8.12.0
+pydantic
+requests
+pytest
+httpx
