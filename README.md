@@ -1,6 +1,6 @@
-# Network IDS + SIEM Dashboard
+# NIDS SIEM Dashboard
 
-Projeto final de curso em Cibersegurança.
+Projeto de demonstração de interface SIEM (estilo QRadar) — design simples, profissional e sem imagens.
 
 ## Componentes
 - FastAPI (API)
@@ -12,3 +12,4 @@ Projeto final de curso em Cibersegurança.
 ## Setup
 ```bash
 docker compose up -d --build
+```

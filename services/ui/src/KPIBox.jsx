@@ -9,4 +9,3 @@ export default function KPIBox({ title, value, note }) {
     </div>
   )
 }
-
