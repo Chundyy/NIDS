@@ -4,21 +4,37 @@ import AlertsTable from "./components/AlertsTable"
 
 export default function App() {
   return (
-    <div className="container">
+    <div className="app-root">
       <Sidebar />
 
-      <div className="content">
-        <h1>Network IDS Dashboard</h1>
+      <main className="content">
+        <header className="topbar">
+          <div className="title">
+            <h1>IDS Dashboard</h1>
+            <p className="subtitle">Visão geral do tráfego e alertas — dados de exemplo</p>
+          </div>
 
-        <div className="kpi-container">
-          <KPIBox title="Total Alerts (24h)" value="128" />
-          <KPIBox title="Critical Alerts" value="12" />
-          <KPIBox title="Hosts Monitored" value="34" />
-        </div>
+          <div className="controls">
+            <input className="search" placeholder="Pesquisar alertas, hosts..." />
+            <select className="period">
+              <option>Últimas 24h</option>
+              <option>Últimas 7 dias</option>
+              <option>Último mês</option>
+            </select>
+          </div>
+        </header>
 
-        <h2>Recent Alerts</h2>
-        <AlertsTable />
-      </div>
+        <section className="kpi-row">
+          <KPIBox title="Total de alertas (24h)" value="128" note="Agregado por severidade" />
+          <KPIBox title="Alertas críticas" value="12" note="Requer atenção imediata" />
+          <KPIBox title="Hosts monitorizados" value="34" note="Ativos no período" />
+        </section>
+
+        <section className="alerts-section">
+          <h2 className="section-title">Alertas recentes</h2>
+          <AlertsTable />
+        </section>
+      </main>
     </div>
   )
 }
