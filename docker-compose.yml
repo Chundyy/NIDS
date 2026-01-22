@@ -1,75 +1,88 @@
 version: "3.9"
 
 services:
+  # --- BACKEND: O Cérebro do SIEM ---
   api:
-    image: python:3.11-slim
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
     container_name: ids_api
-    working_dir: /app
     restart: unless-stopped
-    volumes:
-      - ./services/api:/app
-    command: bash -lc "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
-    ports:
-      - "8000:8000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      ES_URL: ${ES_URL}
+      ES_URL: http://elasticsearch:9200
       SECRET_KEY: ${SECRET_KEY}
     depends_on:
-      - postgres
-      - elasticsearch
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     networks:
-      - idsnet
+      - backend_net
+      - frontend_net
+    ports:
+      - "8000:8000"
 
+  # --- FRONTEND: UI do SOC ---
   ui:
-    image: node:20-alpine
+    build:
+      context: ./services/ui
+      dockerfile: Dockerfile
     container_name: ids_ui
-    working_dir: /ui
     restart: unless-stopped
-    volumes:
-      - ./services/ui:/ui
-    command: sh -lc "npm install -g serve && (test -d dist || (npm install && npm run build)) && serve -s dist -l 3000"
     ports:
       - "3000:3000"
     depends_on:
       - api
     networks:
-      - idsnet
+      - frontend_net
 
+  # --- DATABASE: Alertas Estruturados e Configs ---
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: ids_postgres
-    restart: unless-stopped
     environment:
       POSTGRES_DB: idsdb
       POSTGRES_USER: ids
-      POSTGRES_PASSWORD: ids123
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ids123}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - idsnet
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ids -d idsdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # --- SEARCH: O motor do SIEM ---
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
     container_name: ids_elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g # Ajustado para deixar RAM para o resto da VM
+      - network.host=0.0.0.0
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
       - esdata:/usr/share/elasticsearch/data
+      - ./services/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     ports:
       - "9200:9200"
-    restart: unless-stopped
     networks:
-      - idsnet
+      - backend_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
+
+  # --- VISUALIZAÇÃO: Auxiliar de Debug ---
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
     container_name: ids_kibana
@@ -77,14 +90,16 @@ services:
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     environment:
-      - ELASTICSEARCH_HOSTS=${ES_URL}
+      - ELASTICSEARCH_HOSTS=http://ids_elasticsearch:9200
     networks:
-      - idsnet
+      - backend_net
 
 networks:
-  idsnet:
+  frontend_net: # UI <-> API
+  backend_net:  # API <-> DB/ES
 
 volumes:
   pgdata:

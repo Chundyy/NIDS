@@ -1,0 +1,10 @@
+cluster.name: "ids-soc-cluster"
+network.host: 0.0.0.0
+
+# Para evitar problemas de escrita se o disco da VM2 
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: "85%"
+cluster.routing.allocation.disk.watermark.high: "90%"
+
+# Logs de auditoria
+xpack.security.audit.enabled: true
