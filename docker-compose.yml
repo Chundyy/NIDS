@@ -22,6 +22,8 @@ services:
       - frontend_net
     ports:
       - "8000:8000"
+    volumes:
+      - ./services/api/ml/models:/app/ml/models
 
   # --- FRONTEND: UI do SOC ---
   ui:

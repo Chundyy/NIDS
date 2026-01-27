@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from models.alert import Alert
 from elastic import es
-
+import psycopg2
+import os
 router = APIRouter()
 
 INDEX = "alerts"
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ids:ids123@ids_postgres:5432/idsdb")
 
 @router.get("")
 @router.get("/")
@@ -35,11 +38,56 @@ def list_alerts(
 
 @router.post("")
 @router.post("/")
-def create_alert(alert: Alert):
+def create_alert(alert: Alert, request: Request):
+    print("DEBUG: Recebi um novo alerta!") # Para vermos nos logs
     doc = alert.model_dump()
-    res = es.index(index=INDEX, document=doc)
-    return {"result": "created", "id": res["_id"]}
+    
+    ml_engine = getattr(request.app.state, "ml_engine", None)
+    
+    ml_data = {
+        "dest_port": doc.get("destination_port", 0),
+        "payload_len": doc.get("payload_len", 0),
+        "proto": doc.get("protocol", "TCP")
+    }
 
+    ml_severity = 0
+    if ml_engine is not None:
+        try:
+            ml_severity = ml_engine.predict_severity(ml_data)
+        except Exception as e:
+            print(f"Erro ML: {e}")
+    
+    doc["ml_predicted_severity"] = ml_severity
+    
+    # Elasticsearch
+    try:
+        res = es.index(index=INDEX, document=doc)
+        es_id = res["_id"]
+    except Exception as e:
+        print(f"Erro ES: {e}")
+        es_id = "error"
+
+    # Postgres
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO eventos_rede (src_ip, dest_ip, porta_destino, protocolo, severidade_ml)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            doc.get("source_ip"), 
+            doc.get("destination_ip"), 
+            doc.get("destination_port", 0), 
+            doc.get("protocol", "UNKNOWN"), 
+            ml_severity
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Erro Postgres: {e}")
+
+    return {"result": "created", "id": es_id, "ml_severity": ml_severity}
 
 @router.get("/stats")
 def alerts_stats():

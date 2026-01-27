@@ -1,10 +1,17 @@
 from fastapi import FastAPI
 from routers import alerts, scans, malware, auth
+from ml.engine import IDSPredictor
 
 app = FastAPI(
     title="IDS API",
     version="1.0.0"
 )
+try:
+    app.state.ml_engine = IDSPredictor()
+    print("ML Engine pronto.")
+except Exception as e:
+    print(f"Falha ao carregar ML Engine: {e}")
+    app.state.ml_engine = None
 
 # Routers
 app.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
@@ -15,3 +22,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.get("/")
+def health_check():
+    return {"status": "online", "ml_loaded": app.state.ml_engine is not None}
