@@ -16,7 +16,22 @@ import RegrasPage from "./pages/RegrasPage"
 import RelatóriosPage from "./pages/RelatóriosPage"
 import ConfiguraçãoPage from "./pages/ConfiguraçãoPage"
 
-function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, setPeriod, kpis, timeseries }) {
+function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, setPeriod, kpis, timeseries, severity, setSeverity, timestamp, setTimestamp, sourceIp, setSourceIp, destIp, setDestIp, description, setDescription }) {
+  // Aplicar filtros aos alertas
+  const filteredAlerts = alerts.filter(a => {
+    if (severity && a.severity !== severity) return false
+    if (timestamp && new Date(a.timestamp).toLocaleString() !== timestamp) return false
+    if (sourceIp && a.source_ip !== sourceIp) return false
+    if (destIp && a.destination_ip !== destIp) return false
+    if (description && a.description !== description) return false
+    return true
+  }).sort((a, b) => {
+    const severityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+    const sevDiff = (severityOrder[a.severity] || 4) - (severityOrder[b.severity] || 4)
+    if (sevDiff !== 0) return sevDiff
+    return new Date(b.timestamp) - new Date(a.timestamp)
+  })
+
   return (
     <main className="content">
       <header className="topbar">
@@ -28,7 +43,7 @@ function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, 
         <div className="controls">
           <input
             className="search"
-            placeholder="Pesquisar alertas, hosts, regras..."
+            placeholder="Pesquisar por IP, descrição, severidade, hora..."
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
@@ -65,7 +80,91 @@ function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, 
       <section className="alerts-section">
         <h2 className="section-title">Alertas recentes</h2>
         {error && <div className="error-msg">{error}</div>}
-        <AlertsTable rows={alerts} />
+        
+        {(severity || timestamp || sourceIp || destIp || description) && (
+          <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', color: '#94a3b8' }}>Filtros ativos:</span>
+            {severity && (
+              <span style={{ 
+                background: 'rgba(11,74,223,0.12)', 
+                color: '#0b4adf',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }} onClick={() => setSeverity("")}>
+                Sev: {severity} ✕
+              </span>
+            )}
+            {timestamp && (
+              <span style={{ 
+                background: 'rgba(11,74,223,0.12)', 
+                color: '#0b4adf',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }} onClick={() => setTimestamp("")}>
+                Hora: {timestamp} ✕
+              </span>
+            )}
+            {sourceIp && (
+              <span style={{ 
+                background: 'rgba(11,74,223,0.12)', 
+                color: '#0b4adf',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }} onClick={() => setSourceIp("")}>
+                Origem: {sourceIp} ✕
+              </span>
+            )}
+            {destIp && (
+              <span style={{ 
+                background: 'rgba(11,74,223,0.12)', 
+                color: '#0b4adf',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }} onClick={() => setDestIp("")}>
+                Destino: {destIp} ✕
+              </span>
+            )}
+            {description && (
+              <span style={{ 
+                background: 'rgba(11,74,223,0.12)', 
+                color: '#0b4adf',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }} onClick={() => setDescription("")}>
+                Desc: {description.substring(0, 20)}... ✕
+              </span>
+            )}
+          </div>
+        )}
+        
+        <AlertsTable 
+          rows={filteredAlerts}
+          onSeverityClick={setSeverity}
+          onTimestampClick={setTimestamp}
+          onSourceIpClick={setSourceIp}
+          onDestIpClick={setDestIp}
+          onDescriptionClick={setDescription}
+          currentSeverityFilter={severity}
+          currentTimestampFilter={timestamp}
+          currentSourceIpFilter={sourceIp}
+          currentDestIpFilter={destIp}
+          currentDescriptionFilter={description}
+        />
       </section>
     </main>
   )
@@ -75,10 +174,30 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState("overview")
   const [stats, setStats] = useState(null)
   const [alerts, setAlerts] = useState([])
+  const [allAlerts, setAllAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState("")
   const [period, setPeriod] = useState("24h")
+  const [severity, setSeverity] = useState("")
+  const [timestamp, setTimestamp] = useState("")
+  const [sourceIp, setSourceIp] = useState("")
+  const [destIp, setDestIp] = useState("")
+  const [description, setDescription] = useState("")
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('nids_darkMode')
+    return saved ? JSON.parse(saved) : false
+  })
+
+  // Aplicar tema escuro ao documentro
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark-mode')
+    } else {
+      document.documentElement.classList.remove('dark-mode')
+    }
+    localStorage.setItem('nids_darkMode', JSON.stringify(darkMode))
+  }, [darkMode])
 
   useEffect(() => {
     let active = true
@@ -88,13 +207,14 @@ export default function App() {
       try {
         const [s, a] = await Promise.all([
           getStats(),
-          getAlerts({ limit: 200 })
+          getAlerts({ limit: 500 })
         ])
         if (!active) return
         const normBySev = Object.fromEntries(
           Object.entries(s?.by_severity || {}).map(([k, v]) => [String(k).toUpperCase(), v])
         )
         setStats({ ...s, by_severity: normBySev })
+        setAllAlerts(a)
         setAlerts(a)
       } catch (e) {
         console.error(e)
@@ -108,23 +228,34 @@ export default function App() {
     return () => { active = false }
   }, [])
 
-  // Debounced search
+  // Debounced search with client-side filtering
   useEffect(() => {
-    const t = setTimeout(async () => {
-      if (!query) {
-        const a = await getAlerts({ limit: 200 })
-        setAlerts(a)
-        return
-      }
-      try {
-        const res = await searchAlerts(query, 200)
-        setAlerts(res)
-      } catch (e) {
-        console.error(e)
-      }
+    if (!query) {
+      // Se não houver query, mostramos todos os alertas
+      setAlerts(allAlerts)
+      return
+    }
+
+    // Se há query, filtramos com debounce
+    const t = setTimeout(() => {
+      const q = query.toLowerCase()
+      const filtered = allAlerts.filter(a => {
+        const searchText = [
+          a.description || '',
+          a.source_ip || '',
+          a.destination_ip || '',
+          a.rule_name || '',
+          a.severity || '',
+          a.timestamp ? new Date(a.timestamp).toLocaleString() : ''
+        ].join(' ').toLowerCase()
+        
+        return searchText.includes(q)
+      })
+      setAlerts(filtered)
     }, 350)
+    
     return () => clearTimeout(t)
-  }, [query])
+  }, [query, allAlerts])
 
   const kpis = useMemo(() => {
     const total = stats?.total_alerts ?? alerts.length
@@ -157,7 +288,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case "overview":
-        return <OverviewPage stats={stats} alerts={alerts} loading={loading} error={error} query={query} setQuery={setQuery} period={period} setPeriod={setPeriod} kpis={kpis} timeseries={timeseries} />
+        return <OverviewPage stats={stats} alerts={alerts} loading={loading} error={error} query={query} setQuery={setQuery} period={period} setPeriod={setPeriod} kpis={kpis} timeseries={timeseries} severity={severity} setSeverity={setSeverity} timestamp={timestamp} setTimestamp={setTimestamp} sourceIp={sourceIp} setSourceIp={setSourceIp} destIp={destIp} setDestIp={setDestIp} description={description} setDescription={setDescription} />
       case "alerts":
         return <AlertasPage />
       case "cases":
@@ -169,9 +300,9 @@ export default function App() {
       case "reports":
         return <RelatóriosPage />
       case "settings":
-        return <ConfiguraçãoPage />
+        return <ConfiguraçãoPage darkMode={darkMode} setDarkMode={setDarkMode} />
       default:
-        return <OverviewPage stats={stats} alerts={alerts} loading={loading} error={error} query={query} setQuery={setQuery} period={period} setPeriod={setPeriod} kpis={kpis} timeseries={timeseries} />
+        return <OverviewPage stats={stats} alerts={alerts} loading={loading} error={error} query={query} setQuery={setQuery} period={period} setPeriod={setPeriod} kpis={kpis} timeseries={timeseries} severity={severity} setSeverity={setSeverity} timestamp={timestamp} setTimestamp={setTimestamp} sourceIp={sourceIp} setSourceIp={setSourceIp} destIp={destIp} setDestIp={setDestIp} description={description} setDescription={setDescription} />
     }
   }
 

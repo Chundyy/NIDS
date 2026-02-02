@@ -2,7 +2,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.168.207.181:8000';
 
 export async function getAlerts({ limit = 100, severity, source_ip, destination_ip } = {}) {
   const params = new URLSearchParams()
-  if (limit) params.set('limit', String(limit))
+  if (limit !== null && limit !== undefined) params.set('limit', String(limit))
   if (severity) params.set('severity', severity)
   if (source_ip) params.set('source_ip', source_ip)
   if (destination_ip) params.set('destination_ip', destination_ip)

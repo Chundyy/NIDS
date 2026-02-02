@@ -1,11 +1,11 @@
 import { useState } from "react"
 
-export default function ConfiguraçãoPage() {
+export default function ConfiguraçãoPage({ darkMode = false, setDarkMode = null }) {
   const [settings, setSettings] = useState({
     apiUrl: "http://localhost:8000",
     refreshInterval: 30,
     alertSound: true,
-    darkMode: false,
+    darkMode: darkMode,
     emailNotifications: false
   })
 
@@ -14,6 +14,10 @@ export default function ConfiguraçãoPage() {
       ...prev,
       [key]: value
     }))
+    // Se for darkMode, atualizar imediatamente
+    if (key === 'darkMode' && setDarkMode) {
+      setDarkMode(value)
+    }
   }
 
   const handleSave = () => {
@@ -88,20 +92,24 @@ export default function ConfiguraçãoPage() {
                 checked={settings.darkMode}
                 onChange={e => handleChange('darkMode', e.target.checked)}
               />
-              Modo escuro (em breve)
+              Modo escuro
             </label>
           </div>
         </div>
 
         <div className="settings-actions">
           <button className="btn-primary" onClick={handleSave}>Guardar Configurações</button>
-          <button className="btn-secondary" onClick={() => setSettings({
-            apiUrl: "http://localhost:8000",
-            refreshInterval: 30,
-            alertSound: true,
-            darkMode: false,
-            emailNotifications: false
-          })}>Repor Padrões</button>
+          <button className="btn-secondary" onClick={() => {
+            const defaults = {
+              apiUrl: "http://localhost:8000",
+              refreshInterval: 30,
+              alertSound: true,
+              darkMode: false,
+              emailNotifications: false
+            }
+            setSettings(defaults)
+            if (setDarkMode) setDarkMode(false)
+          }}>Repor Padrões</button>
         </div>
 
         <div className="system-info">

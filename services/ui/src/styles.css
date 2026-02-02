@@ -12,6 +12,21 @@
   --low:#10b981;
 }
 
+/* Dark Mode */
+:root.dark-mode {
+  --bg:#0b0e11;
+  --panel:#1a1f2e;
+  --muted:#64748b;
+  --text:#e6eef8;
+  --accent:#4a9aff;
+  --sidebar:#080a0f;
+  --sidebar-2:#0b0d12;
+  --danger:#ff4757;
+  --high:#ffa502;
+  --medium:#9966ff;
+  --low:#2ed573;
+}
+
 /* Base */
 body{
   margin:0;
@@ -25,6 +40,7 @@ body{
 .app-root{
   display:flex;
   min-height:100vh;
+  position:relative;
 }
 
 /* Sidebar (estilo SIEM: escuro, compacto) */
@@ -38,6 +54,12 @@ body{
   flex-direction:column;
   justify-content:space-between;
   border-right:1px solid rgba(255,255,255,0.04);
+  position:fixed;
+  left:0;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  z-index:100;
 }
 
 .brand{
@@ -84,6 +106,7 @@ body{
 .content{
   flex-grow:1;
   padding:24px;
+  margin-left:200px;
   box-sizing:border-box;
 }
 
@@ -126,6 +149,10 @@ body{
   color:var(--text);
 }
 
+:root.dark-mode .search {
+  border-color: rgba(255,255,255,0.1);
+}
+
 .period{
   padding:8px 10px;
   border:1px solid #e6edf6;
@@ -133,6 +160,10 @@ body{
   background:var(--panel);
   font-size:14px;
   color:var(--text);
+}
+
+:root.dark-mode .period {
+  border-color: rgba(255,255,255,0.1);
 }
 
 /* KPI Row (cartões limpos) */
@@ -400,6 +431,11 @@ body{
   color:var(--text);
 }
 
+:root.dark-mode .setting-input {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+}
+
 .setting-input:focus{
   outline:none;
   border-color:var(--accent);
@@ -613,6 +649,15 @@ body{
   background:#fbfbff;
 }
 
+/* Dark mode para tabela de alertas - apenas texto verde */
+:root.dark-mode .alert-table td {
+  color: #2ecc71;
+}
+
+:root.dark-mode .alert-table tr:hover td {
+  color: #2ecc71;
+}
+
 /* Severity badges (cores claras, sem ícones) */
 .sev{
   display:inline-block;
@@ -635,7 +680,13 @@ body{
 
 /* Responsiveness */
 @media (max-width: 880px){
-  .sidebar{ display:none; }
+  .sidebar{ 
+    position:fixed;
+    width:180px;
+  }
+  .content{
+    margin-left:180px;
+  }
   .kpi-row{ justify-content:flex-start; }
   .controls{ gap:8px; }
   .search{ min-width:140px; }
