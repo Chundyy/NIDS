@@ -9,3 +9,6 @@ class Alert(BaseModel):
     destination_ip: str
     description: str
     category: Optional[str] = None
+    destination_port: int = 0
+    payload_len: int = 0
+    protocol: str = "TCP"

@@ -24,6 +24,7 @@ services:
       - "8000:8000"
     volumes:
       - ./services/api/ml/models:/app/ml/models
+      - ./services/api:/app
 
   # --- FRONTEND: UI do SOC ---
   ui:

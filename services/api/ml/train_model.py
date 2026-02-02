@@ -1,39 +1,34 @@
 import pandas as pd
 import joblib
-from sqlalchemy import create_engine
+import json
 from sklearn.ensemble import RandomForestClassifier
-import os
-
-# Configuração (Usa o nome do container ids_postgres se correres via Docker)
-# Se correres direto na VM, usa localhost
-DATABASE_URL = "postgresql://ids:ids123@ids_postgres:5432/idsdb"
+from features import extract_features
 
 def train():
-    engine = create_engine(DATABASE_URL)
+    with open('alerts_data.json', 'r') as f:
+        raw_data = json.load(f)
     
-    print("A procurar dados no Postgres...")
-    try:
-        df = pd.read_sql("SELECT porta_destino, tamanho_pacote, severidade_ml FROM eventos_rede", engine)
-    except Exception as e:
-        print(f"Erro ao ler tabela: {e}. Garante que inseriste dados de teste!")
-        return
-
-    if len(df) < 5:
-        print("Dados insuficientes para treinar. Insere mais alguns eventos primeiro.")
-        return
-
-
-    X = df[['porta_destino', 'tamanho_pacote']]
-    y = df['severidade_ml']
-
-    print("A treinar o modelo Random Forest...")
+    hits = [hit['_source'] for hit in raw_data['hits']['hits']]
+    
+    # Processar cada alerta para extrair as novas features
+    processed_data = []
+    for h in hits:
+        features = extract_features(h)
+        # Mapear a severidade real (o nosso alvo)
+        sev_map = {'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
+        features['target'] = sev_map.get(h.get('severity'), 1)
+        processed_data.append(features)
+    
+    df = pd.DataFrame(processed_data)
+    
+    X = df.drop(columns=['target'])
+    y = df['target']
+    
     model = RandomForestClassifier(n_estimators=100)
     model.fit(X, y)
-
-    os.makedirs('models', exist_ok=True)
-
+    
     joblib.dump(model, 'models/ids_model.pkl')
-    print("Modelo guardado com sucesso em ml/models/ids_model.pkl!")
+    print("✅ Modelo treinado com inteligência de caracteres especiais!")
 
 if __name__ == "__main__":
     train()
