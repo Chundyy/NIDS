@@ -42,50 +42,69 @@ def list_alerts(
 def create_alert(alert: Alert, request: Request):
     # 1. Converter o objeto Pydantic em dicionário
     doc = alert.model_dump()
-    print(f"DEBUG DATA: {doc}")
-
-    # 2. Obter o motor de ML (Hugging Face / DistilBERT)
+    
+    # 2. Obter o motor de ML
     ml_engine = request.app.state.ml_engine
-    ml_severity = 1 # Valor padrão (Benigno)
+    ml_severity = 1 # Valor numérico padrão
+    ml_confidence = 0.0
 
     if ml_engine is not None:
         try:
-            # IMPORTANTE: Passamos o 'doc' INTEIRO ou pelo menos a descrição.
-            # O DistilBERT precisa da "description" e "category" para decidir.
-            ml_severity = ml_engine.predict_severity(doc)
-            print(f"DEBUG ML: IA classificou como -> {ml_severity}")
+            # A IA avalia o documento e devolve 1, 2, 3 ou 4
+            ml_severity, ml_confidence = ml_engine.predict_severity(doc)
+            print(f"DEBUG ML: IA classificou como -> {ml_severity} (Confiança: {ml_confidence}%")
         except Exception as e:
             print(f"Erro ao processar ML: {e}")
+            ml_severity = 1
+            ml_confidence = 0.0
 
-    # 3. Adicionar o resultado da IA ao documento
+    # --- MAPEAMENTO PARA A DASHBOARD (CORES) ---
+    severity_map = {
+        1: "LOW",
+        2: "MEDIUM",
+        3: "HIGH",
+        4: "CRITICAL"
+    }
+    
+    # Criamos a string correspondente ao número (ex: 4 -> "CRITICAL")
+    ml_severity_text = severity_map.get(ml_severity, "LOW")
+
+    # Atualizamos o campo 'severity' com TEXTO para a UI pintar as cores corretamente
+    doc["severity"] = ml_severity_text
+    # Guardamos o número noutro campo para referência técnica
     doc["ml_predicted_severity"] = ml_severity
     
-    # --- Elasticsearch ---
+    doc["ml_confidence"] = ml_confidence 
+    
+    # 3. --- Elasticsearch ---
     try:
-        # Indexamos o documento já com a predição da IA
+        # Agora o ES recebe "CRITICAL" no campo severity
         res = es.index(index=INDEX, document=doc)
         es_id = res["_id"]
+        print(f"ES OK: Alerta indexado com ID {es_id} e Confiança {ml_confidence}%")
     except Exception as e:
         print(f"Erro ES: {e}")
         es_id = "error"
 
-    # --- Postgres ---
+    # 4. --- Postgres ---
     try:
-        # Usamos os teus dados de conexão (DATABASE_URL=postgresql://ids:ids123@postgres:5432/idsdb)
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
-        
-        # Inserimos a severidade calculada pela IA na coluna 'severidade_ml'
+
+        # No Postgres, guardamos o NÚMERO (ml_severity) na coluna 'severidade_ml'
+        descricao_evento = doc.get("description") or doc.get("signature") or doc.get("alerta_assinatura") or "No description"
+
         cur.execute("""
-            INSERT INTO eventos_rede (src_ip, dest_ip, porta_destino, protocolo, severidade_ml, descricao)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO eventos_rede (src_ip, dest_ip, porta_destino, protocolo, severidade_ml, confianca_ml,alerta_assinatura)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             doc.get("source_ip"), 
             doc.get("destination_ip"), 
             doc.get("destination_port", 0), 
             doc.get("protocol", "UNKNOWN"), 
-            ml_severity,
-            doc.get("description", "No description")
+            ml_severity, # Valor numérico (1-4)
+            ml_confidence,
+            descricao_evento
         ))
         conn.commit()
         cur.close()
@@ -93,7 +112,7 @@ def create_alert(alert: Alert, request: Request):
     except Exception as e:
         print(f"Erro Postgres: {e}")
 
-    return {"result": "created", "id": es_id, "ml_severity": ml_severity}
+    return {"result": "created", "id": es_id, "ml_severity": ml_severity, "status": ml_severity_text, "confidence": f"{ml_confidence}%"}
 
 @router.get("/stats")
 @router.get("/stats/")
