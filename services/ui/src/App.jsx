@@ -16,9 +16,24 @@ import RegrasPage from "./pages/RegrasPage"
 import RelatóriosPage from "./pages/RelatóriosPage"
 import ConfiguraçãoPage from "./pages/ConfiguraçãoPage"
 
-function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, setPeriod, kpis, timeseries, severity, setSeverity, timestamp, setTimestamp, sourceIp, setSourceIp, destIp, setDestIp, description, setDescription }) {
+function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, setPeriod, kpis, timeseries, severity, setSeverity, timestamp, setTimestamp, sourceIp, setSourceIp, destIp, setDestIp, description, setDescription, onShowAllAlerts, loadingAllAlerts }) {
+  const [showAllAlerts, setShowAllAlerts] = useState(false)
+  const alertLimit = 50
+
+  useEffect(() => {
+    setShowAllAlerts(false)
+  }, [period, severity, timestamp, sourceIp, destIp, description, query])
+
   // Aplicar filtros aos alertas
   const filteredAlerts = alerts.filter(a => {
+    if (a.timestamp) {
+      const now = dayjs()
+      const windowHours = period === "24h" ? 24 : period === "7d" ? 24 * 7 : period === "30d" ? 24 * 30 : null
+      if (windowHours) {
+        const start = now.subtract(windowHours, "hour")
+        if (dayjs(a.timestamp).isBefore(start)) return false
+      }
+    }
     if (severity && a.severity !== severity) return false
     if (timestamp && new Date(a.timestamp).toLocaleString() !== timestamp) return false
     if (sourceIp && a.source_ip !== sourceIp) return false
@@ -26,11 +41,13 @@ function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, 
     if (description && a.description !== description) return false
     return true
   }).sort((a, b) => {
-    const severityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
-    const sevDiff = (severityOrder[a.severity] || 4) - (severityOrder[b.severity] || 4)
-    if (sevDiff !== 0) return sevDiff
+    if (!a.timestamp && !b.timestamp) return 0
+    if (!a.timestamp) return 1
+    if (!b.timestamp) return -1
     return new Date(b.timestamp) - new Date(a.timestamp)
   })
+
+  const visibleAlerts = showAllAlerts ? filteredAlerts : filteredAlerts.slice(0, alertLimit)
 
   return (
     <main className="content">
@@ -153,7 +170,7 @@ function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, 
         )}
         
         <AlertsTable 
-          rows={filteredAlerts}
+          rows={visibleAlerts}
           onSeverityClick={setSeverity}
           onTimestampClick={setTimestamp}
           onSourceIpClick={setSourceIp}
@@ -165,6 +182,21 @@ function OverviewPage({ stats, alerts, loading, error, query, setQuery, period, 
           currentDestIpFilter={destIp}
           currentDescriptionFilter={description}
         />
+        {filteredAlerts.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '14px' }}>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setShowAllAlerts(true)
+                if (onShowAllAlerts) onShowAllAlerts()
+              }}
+              disabled={loadingAllAlerts}
+              title={loadingAllAlerts ? "A carregar alertas" : "Mostrar todos os alertas"}
+            >
+              {loadingAllAlerts ? "A carregar..." : "Ver mais"}
+            </button>
+          </div>
+        )}
       </section>
     </main>
   )
@@ -176,6 +208,7 @@ export default function App() {
   const [alerts, setAlerts] = useState([])
   const [allAlerts, setAllAlerts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingAllAlerts, setLoadingAllAlerts] = useState(false)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState("")
   const [period, setPeriod] = useState("24h")
@@ -227,6 +260,22 @@ export default function App() {
     load()
     return () => { active = false }
   }, [])
+
+  const fetchAllAlerts = async () => {
+    if (loadingAllAlerts) return
+    setLoadingAllAlerts(true)
+    try {
+      const all = await getAlerts({ limit: 100000 })
+      setAllAlerts(all)
+      if (!query) {
+        setAlerts(all)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingAllAlerts(false)
+    }
+  }
 
   // Debounced search with client-side filtering
   useEffect(() => {
@@ -288,7 +337,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case "overview":
-        return <OverviewPage stats={stats} alerts={alerts} loading={loading} error={error} query={query} setQuery={setQuery} period={period} setPeriod={setPeriod} kpis={kpis} timeseries={timeseries} severity={severity} setSeverity={setSeverity} timestamp={timestamp} setTimestamp={setTimestamp} sourceIp={sourceIp} setSourceIp={setSourceIp} destIp={destIp} setDestIp={setDestIp} description={description} setDescription={setDescription} />
+        return <OverviewPage stats={stats} alerts={alerts} loading={loading} error={error} query={query} setQuery={setQuery} period={period} setPeriod={setPeriod} kpis={kpis} timeseries={timeseries} severity={severity} setSeverity={setSeverity} timestamp={timestamp} setTimestamp={setTimestamp} sourceIp={sourceIp} setSourceIp={setSourceIp} destIp={destIp} setDestIp={setDestIp} description={description} setDescription={setDescription} onShowAllAlerts={fetchAllAlerts} loadingAllAlerts={loadingAllAlerts} />
       case "alerts":
         return <AlertasPage />
       case "cases":
