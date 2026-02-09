@@ -1,4 +1,5 @@
 import React from "react"
+import NIDSLogo from "./components/NIDSLogo"
 
 export default function Sidebar({ currentPage, onNavigate }) {
   const pages = [
@@ -13,7 +14,9 @@ export default function Sidebar({ currentPage, onNavigate }) {
 
   return (
     <aside className="sidebar">
-      <div className="brand">NIDS SIEM</div>
+      <div className="brand">
+        <NIDSLogo />
+      </div>
 
       <nav className="nav">
         <ul>

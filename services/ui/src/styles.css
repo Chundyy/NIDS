@@ -67,6 +67,14 @@ body{
   font-size:15px;
   letter-spacing:0.4px;
   margin-bottom:14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.nids-logo {
+  display: flex;
+  align-items: center;
 }
 
 .nav ul{
