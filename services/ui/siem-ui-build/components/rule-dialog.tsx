@@ -1,0 +1,216 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Loader2 } from "lucide-react"
+
+export interface RuleFormData {
+  name: string
+  description: string
+  severity: string
+  enabled: boolean
+  category: string
+  pattern: string
+}
+
+interface RuleDialogProps {
+  open: boolean
+  onClose: () => void
+  onSubmit: (data: RuleFormData) => Promise<void>
+  initialData?: RuleFormData | null
+  mode: "create" | "edit"
+}
+
+const defaultForm: RuleFormData = {
+  name: "",
+  description: "",
+  severity: "MEDIUM",
+  enabled: true,
+  category: "web_exploit",
+  pattern: "",
+}
+
+export function RuleDialog({
+  open,
+  onClose,
+  onSubmit,
+  initialData,
+  mode,
+}: RuleDialogProps) {
+  const [form, setForm] = useState<RuleFormData>(defaultForm)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setForm(initialData ?? defaultForm)
+    }
+  }, [open, initialData])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await onSubmit(form)
+      onClose()
+    } catch {
+      // Error toast should be handled by parent
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="bg-card border-border sm:max-w-lg">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {mode === "create" ? "Create Detection Rule" : "Edit Detection Rule"}
+            </DialogTitle>
+            <DialogDescription>
+              {mode === "create"
+                ? "Define a new detection rule to identify threats in network traffic."
+                : "Modify the detection rule configuration."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            {/* Name */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-name" className="text-xs text-muted-foreground">
+                Rule Name
+              </Label>
+              <Input
+                id="rule-name"
+                required
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. SQL Injection Detection"
+                className="bg-secondary/50 border-border text-foreground"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-desc" className="text-xs text-muted-foreground">
+                Description
+              </Label>
+              <Textarea
+                id="rule-desc"
+                required
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                placeholder="What does this rule detect?"
+                className="bg-secondary/50 border-border text-foreground resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Pattern */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rule-pattern" className="text-xs text-muted-foreground">
+                Pattern / Signature
+              </Label>
+              <Input
+                id="rule-pattern"
+                required
+                value={form.pattern}
+                onChange={(e) => setForm({ ...form, pattern: e.target.value })}
+                placeholder="Regex or detection pattern"
+                className="bg-secondary/50 border-border text-foreground font-mono text-xs"
+              />
+            </div>
+
+            {/* Severity + Category row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Severity</Label>
+                <Select
+                  value={form.severity}
+                  onValueChange={(v) => setForm({ ...form, severity: v })}
+                >
+                  <SelectTrigger className="bg-secondary/50 border-border text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="LOW">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Category</Label>
+                <Select
+                  value={form.category}
+                  onValueChange={(v) => setForm({ ...form, category: v })}
+                >
+                  <SelectTrigger className="bg-secondary/50 border-border text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="web_exploit">Web Exploit</SelectItem>
+                    <SelectItem value="network_scan">Network Scan</SelectItem>
+                    <SelectItem value="brute_force">Brute Force</SelectItem>
+                    <SelectItem value="anomaly">Anomaly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Enabled toggle */}
+            <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
+              <Label htmlFor="rule-enabled" className="text-sm text-foreground cursor-pointer">
+                Rule Enabled
+              </Label>
+              <Switch
+                id="rule-enabled"
+                checked={form.enabled}
+                onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={loading}
+              className="text-muted-foreground"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {mode === "create" ? "Create Rule" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

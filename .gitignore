@@ -3,3 +3,24 @@ __pycache__/
 *.pkl
 *.log
 services/api/ml/models/
+
+# Pasta de dependências do Node (MUITO IMPORTANTE)
+**/node_modules/
+ui/node_modules/
+ui/siem-ui-build/node_modules/
+
+# Builds do Next.js
+.next/
+ui/siem-ui-build/.next/
+
+# Docker volumes
+pgdata/
+esdata/
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Logs e quarentena
+services/api/quarantine/*.csv

@@ -11,10 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { type Alert, categoryLabels } from "@/lib/mock-data"
+import { type Alert, type Severity, categoryLabels } from "@/lib/mock-data"
 
-function SeverityIndicator({ severity }: { severity: string }) {
-  const config: Record<string, { color: string; bg: string; border: string }> = {
+function SeverityIndicator({ severity }: { severity: Severity }) {
+  const config: Record<Severity, { color: string; bg: string; border: string }> = {
     CRITICAL: {
       color: "text-destructive",
       bg: "bg-destructive/15",
@@ -37,7 +37,7 @@ function SeverityIndicator({ severity }: { severity: string }) {
     },
   }
 
-  const c = config[severity] || config["LOW"]
+  const c = config[severity]
 
   return (
     <Badge variant="outline" className={`${c.bg} ${c.color} ${c.border} text-xs`}>

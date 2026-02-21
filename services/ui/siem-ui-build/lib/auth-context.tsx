@@ -1,7 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
-import { login as apiLogin } from "@/lib/api"
+import React, { createContext, useContext, useState, useCallback } from "react"
 
 interface User {
   username: string
@@ -20,51 +19,26 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser))
-      } catch (e) {
-        localStorage.removeItem("user")
-      }
-    }
-    setIsLoading(false)
-  }, [])
+  const [isLoading, setIsLoading] = useState(false)
 
   const login = useCallback(async (username: string, password: string) => {
     setIsLoading(true)
-    try {
-      const response = await apiLogin({ username, password })
-      
-      if (response.error) {
-        setIsLoading(false)
-        return false
-      }
+    // Simulate API call to POST /auth/login
+    await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      // Create user object from response
-      const userData: User = {
-        username: response.username || username,
-        role: response.role || "Security Analyst",
-      }
-
-      setUser(userData)
-      localStorage.setItem("user", JSON.stringify(userData))
+    // Mock credentials check - replace with real API call
+    if (username === "admin" && password === "admin") {
+      setUser({ username: "admin", role: "Security Analyst" })
       setIsLoading(false)
       return true
-    } catch (error) {
-      console.error("Login failed:", error)
-      setIsLoading(false)
-      return false
     }
+
+    setIsLoading(false)
+    return false
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
-    localStorage.removeItem("user")
   }, [])
 
   return (

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { Search, Filter, Loader2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Search, Filter } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -13,27 +13,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { fetchAlerts, type Alert } from "@/lib/api"
+import { alertsApi } from "@/lib/api"
 import { AlertDetailDrawer } from "@/components/alert-detail-drawer"
 import { formatDistanceToNow, format } from "date-fns"
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
-type Category = string
+type Category = "web_exploit" | "network_scan" | "brute_force" | "anomaly"
 
-const categoryLabels: Record<string, string> = {
+const categoryLabels: Record<Category, string> = {
   web_exploit: "Web Exploit",
   network_scan: "Network Scan",
   brute_force: "Brute Force",
   anomaly: "Anomaly",
-  malware: "Malware",
-  ddos: "DDoS",
 }
 
-function SeverityBadge({ severity }: { severity: string }) {
+interface AlertFixed {
+  id?: string
+  timestamp: string
+  severity: Severity
+  source_ip: string
+  destination_ip: string
+  category?: Category
+  description?: string
+  payload?: string
+  [key: string]: any
+}
+
+function normalizeSeverity(input: unknown): Severity {
+  const s = String(input ?? "LOW").toUpperCase()
+  if (s === "CRITICAL" || s === "HIGH" || s === "MEDIUM" || s === "LOW") return s
+  return "LOW"
+}
+
+function SeverityBadge({ severity }: { severity: Severity }) {
   const colorMap: Record<Severity, string> = {
     CRITICAL: "bg-destructive/15 text-destructive border-destructive/30",
     HIGH: "bg-warning/15 text-warning border-warning/30",
-    MEDIUM: "bg-[hsl(45,93%,47%)]/15 text-[hsl(45,93%,47%)] border-[hsl(45,93%,47%)]/30",
+    MEDIUM:
+      "bg-[hsl(45,93%,47%)]/15 text-[hsl(45,93%,47%)] border-[hsl(45,93%,47%)]/30",
     LOW: "bg-primary/15 text-primary border-primary/30",
   }
 
@@ -44,7 +61,8 @@ function SeverityBadge({ severity }: { severity: string }) {
   )
 }
 
-function CategoryBadge({ category }: { category: Category }) {
+function CategoryBadge({ category }: { category?: Category }) {
+  if (!category) return null
   return (
     <Badge
       variant="secondary"
@@ -55,62 +73,71 @@ function CategoryBadge({ category }: { category: Category }) {
   )
 }
 
-export function AlertsList() {
-  const [alerts, setAlerts] = useState<Alert[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default function AlertsList() {
+  const [alerts, setAlerts] = useState<AlertFixed[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [severityFilter, setSeverityFilter] = useState<string>("all")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
+  const [selectedAlert, setSelectedAlert] = useState<AlertFixed | null>(null)
 
-  // Fetch alerts from API
   useEffect(() => {
-    const loadAlerts = async () => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const severity = severityFilter !== "all" ? severityFilter : undefined
-        const data = await fetchAlerts(50, severity)
-        setAlerts(data)
-      } catch (err) {
-        setError("Failed to load alerts")
-        console.error(err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadAlerts()
-  }, [severityFilter])
+    setLoading(true)
+    alertsApi
+      .list({ limit: 200 })
+      .then((data) => {
+        setAlerts(
+          (data ?? []).map((a: any) => ({
+            ...a,
+            severity: normalizeSeverity(a?.severity),
+            category: a?.category,
+          }))
+        )
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err?.message || "Failed to load alerts")
+        setLoading(false)
+      })
+  }, [])
 
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert) => {
-      if (categoryFilter !== "all" && alert.category !== categoryFilter) return false
+      if (severityFilter !== "all" && alert.severity !== (severityFilter as Severity)) return false
+      if (categoryFilter !== "all" && alert.category !== (categoryFilter as Category)) return false
+
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         if (
-          !alert.source_ip.includes(q) &&
-          !alert.destination_ip.includes(q) &&
-          !alert.description.toLowerCase().includes(q)
+          !alert.source_ip?.toLowerCase().includes(q) &&
+          !alert.destination_ip?.toLowerCase().includes(q) &&
+          !(alert.description && alert.description.toLowerCase().includes(q))
         ) {
           return false
         }
       }
       return true
     })
-  }, [alerts, categoryFilter, searchQuery])
+  }, [alerts, severityFilter, categoryFilter, searchQuery])
 
-  const severityRowBorder: Record<string, string> = {
+  const severityRowBorder: Record<Severity, string> = {
     CRITICAL: "border-l-destructive",
     HIGH: "border-l-warning",
     MEDIUM: "border-l-[hsl(45,93%,47%)]",
     LOW: "border-l-primary",
   }
 
+  if (loading) {
+    return <div className="p-6 text-center text-muted-foreground">Loading alerts...</div>
+  }
+
+  if (error) {
+    return <div className="p-6 text-center text-destructive">{error}</div>
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Filters */}
       <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
@@ -118,6 +145,7 @@ export function AlertsList() {
               <Filter className="h-4 w-4" />
               <span>Filters</span>
             </div>
+
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -127,6 +155,7 @@ export function AlertsList() {
                 className="pl-9 bg-secondary/50 border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
+
             <Select value={severityFilter} onValueChange={setSeverityFilter}>
               <SelectTrigger className="w-40 bg-secondary/50 border-border text-foreground">
                 <SelectValue placeholder="Severity" />
@@ -139,6 +168,7 @@ export function AlertsList() {
                 <SelectItem value="LOW">Low</SelectItem>
               </SelectContent>
             </Select>
+
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-40 bg-secondary/50 border-border text-foreground">
                 <SelectValue placeholder="Category" />
@@ -151,6 +181,7 @@ export function AlertsList() {
                 <SelectItem value="anomaly">Anomaly</SelectItem>
               </SelectContent>
             </Select>
+
             {(severityFilter !== "all" || categoryFilter !== "all" || searchQuery) && (
               <Button
                 variant="ghost"
@@ -169,27 +200,15 @@ export function AlertsList() {
         </CardContent>
       </Card>
 
-      {/* Results count */}
       <div className="text-xs text-muted-foreground">
-        {isLoading ? (
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading alerts...
-          </div>
-        ) : error ? (
-          <div className="text-destructive">{error}</div>
-        ) : (
-          `Showing ${filteredAlerts.length} of ${alerts.length} alerts`
-        )}
+        Showing {filteredAlerts.length} of {alerts.length} alerts
       </div>
 
-      {/* Alerts Table */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-0">
-          <CardTitle className="text-sm font-medium text-foreground">
-            Alert Detections
-          </CardTitle>
+          <CardTitle className="text-sm font-medium text-foreground">Alert Detections</CardTitle>
         </CardHeader>
+
         <CardContent className="pt-4">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -216,11 +235,17 @@ export function AlertsList() {
                   </th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredAlerts.map((alert) => (
                   <tr
-                    key={alert.id}
-                    className={`border-b border-border/50 border-l-2 hover:bg-accent/50 transition-colors cursor-pointer ${severityRowBorder[alert.severity]}`}
+                    key={
+                      alert.id ??
+                      `${alert.timestamp}-${alert.source_ip}-${alert.destination_ip}`
+                    }
+                    className={`border-b border-border/50 border-l-2 hover:bg-accent/50 transition-colors cursor-pointer ${
+                      severityRowBorder[alert.severity]
+                    }`}
                     onClick={() => setSelectedAlert(alert)}
                     role="button"
                     tabIndex={0}
@@ -238,18 +263,14 @@ export function AlertsList() {
                           {format(new Date(alert.timestamp), "MMM dd, HH:mm:ss")}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(alert.timestamp), {
-                            addSuffix: true,
-                          })}
+                          {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
                         </span>
                       </div>
                     </td>
                     <td className="py-3">
                       <SeverityBadge severity={alert.severity} />
                     </td>
-                    <td className="py-3 text-xs font-mono text-foreground">
-                      {alert.source_ip}
-                    </td>
+                    <td className="py-3 text-xs font-mono text-foreground">{alert.source_ip}</td>
                     <td className="py-3 text-xs font-mono text-foreground">
                       {alert.destination_ip}
                     </td>
@@ -261,12 +282,11 @@ export function AlertsList() {
                     </td>
                   </tr>
                 ))}
+
                 {filteredAlerts.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-12 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        No alerts match your filters.
-                      </p>
+                      <p className="text-sm text-muted-foreground">No alerts match your filters.</p>
                     </td>
                   </tr>
                 )}
@@ -276,11 +296,7 @@ export function AlertsList() {
         </CardContent>
       </Card>
 
-      {/* Alert Detail Drawer */}
-      <AlertDetailDrawer
-        alert={selectedAlert}
-        onClose={() => setSelectedAlert(null)}
-      />
+      <AlertDetailDrawer alert={selectedAlert as any} onClose={() => setSelectedAlert(null)} />
     </div>
   )
 }
