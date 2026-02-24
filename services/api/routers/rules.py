@@ -13,19 +13,10 @@ INDEX = "rules"
 def _get_next_sid() -> int:
     if not es.indices.exists(index=INDEX):
         return 1000000
-    res = es.search(
-        index=INDEX,
-        query={"match_all": {}},
-        size=1,
-        sort=[{"sid": {"order": "desc", "missing": "_last"}}],
-    )
-    hits = res.get("hits", {}).get("hits", [])
-    if not hits:
-        return 1000000
-    last_sid = hits[0].get("_source", {}).get("sid")
-    if not isinstance(last_sid, int):
-        return 1000000
-    return last_sid + 1
+    # Contar quantas rules existem
+    res = es.count(index=INDEX)
+    count = res.get("count", 0)
+    return 1000000 + count
 
 
 @router.get("")
