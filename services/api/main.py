@@ -18,13 +18,8 @@ except Exception as e:
 # CORS para permitir o frontend em desenvolvimento (Vite em localhost:3000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",
-                   "http://127.0.0.1:3000",
-                   "http://192.168.207.181:3000",
-                   "http://10.56.109.201/:3000",
-		   "*",
-    ],
-    allow_credentials=False, #Temporario alterar depois pa!!!!
+    allow_origins=["*"],  # Permite todas as origens em desenvolvimento
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

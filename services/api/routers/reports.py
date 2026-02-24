@@ -1,11 +1,16 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from db import get_connection
 from datetime import datetime, date
+from pydantic import BaseModel
+from typing import Optional
 import os
 import json
 
 router = APIRouter()
+
+class GenerateReportRequest(BaseModel):
+    report_date: Optional[str] = None
 
 @router.get("/")
 def get_daily_reports():
@@ -41,11 +46,11 @@ def get_daily_reports():
 
 
 @router.post("/generate")
-def generate_daily_report(report_date: str = None):
+def generate_daily_report(request: GenerateReportRequest = GenerateReportRequest()):
     """Generate a daily report for a specific date (or today if not specified)"""
     try:
-        if report_date:
-            target_date = datetime.fromisoformat(report_date).date()
+        if request.report_date:
+            target_date = datetime.fromisoformat(request.report_date).date()
         else:
             target_date = date.today()
         
@@ -141,10 +146,14 @@ def download_report(report_id: int):
         }
         
         filename = f"malware_report_{row[1]}.json"
-        return FileResponse(
-            content=json.dumps(report_data, indent=2),
+        content = json.dumps(report_data, indent=2)
+        
+        return Response(
+            content=content,
             media_type="application/json",
-            filename=filename
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
     except HTTPException:
         raise

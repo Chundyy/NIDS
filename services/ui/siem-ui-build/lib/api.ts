@@ -1,8 +1,25 @@
 // ── API Configuration ─────────────────────────────────────────────────
-// Change this to your FastAPI backend URL when deploying.
-// In development, the backend runs on your VM at port 8000.
+// Auto-detect API URL based on the current hostname
+// This allows the frontend to work both locally and remotely
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://10.56.109.201:8000"
+function getApiBase(): string {
+  // Use environment variable if set
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL
+  }
+  
+  // Auto-detect based on browser hostname (client-side only)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    const protocol = window.location.protocol
+    return `${protocol}//${hostname}:8000`
+  }
+  
+  // Fallback for server-side rendering
+  return "http://localhost:8000"
+}
+
+const API_BASE = getApiBase()
 
 // ── Generic fetcher ──────────────────────────────────────────────────
 
