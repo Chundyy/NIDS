@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   Search,
   Filter,
@@ -21,35 +21,38 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  mockCases,
   type Case,
-  type CaseStatus,
-  type CasePriority,
-  caseStatusLabels,
-  casePriorityLabels,
-} from "@/lib/mock-data"
+  casesApi,
+} from "@/lib/api"
 import { CaseDetailDrawer } from "@/components/case-detail-drawer"
 import { formatDistanceToNow, format } from "date-fns"
 
 // ── Badge Components ────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: CaseStatus }) {
-  const colorMap: Record<CaseStatus, string> = {
+function StatusBadge({ status }: { status: string }) {
+  const colorMap: Record<string, string> = {
     open: "bg-destructive/15 text-destructive border-destructive/30",
     in_progress: "bg-warning/15 text-warning border-warning/30",
     resolved: "bg-success/15 text-success border-success/30",
     closed: "bg-muted text-muted-foreground border-border",
   }
 
+  const labelMap: Record<string, string> = {
+    open: "Open",
+    in_progress: "In Progress",
+    resolved: "Resolved",
+    closed: "Closed",
+  }
+
   return (
-    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colorMap[status]}`}>
-      {caseStatusLabels[status]}
+    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colorMap[status] ?? "bg-muted text-muted-foreground border-border"}`}>
+      {labelMap[status] ?? status}
     </Badge>
   )
 }
 
-function PriorityBadge({ priority }: { priority: CasePriority }) {
-  const colorMap: Record<CasePriority, string> = {
+function PriorityBadge({ priority }: { priority: string }) {
+  const colorMap: Record<string, string> = {
     critical: "bg-destructive/15 text-destructive border-destructive/30",
     high: "bg-warning/15 text-warning border-warning/30",
     medium:
@@ -57,24 +60,31 @@ function PriorityBadge({ priority }: { priority: CasePriority }) {
     low: "bg-primary/15 text-primary border-primary/30",
   }
 
+  const labelMap: Record<string, string> = {
+    critical: "Critical",
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+  }
+
   return (
-    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colorMap[priority]}`}>
-      {casePriorityLabels[priority]}
+    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colorMap[priority] ?? "bg-muted text-muted-foreground border-border"}`}>
+      {labelMap[priority] ?? priority}
     </Badge>
   )
 }
 
 // ── Status Icon ─────────────────────────────────────────────────────────
 
-function StatusIcon({ status }: { status: CaseStatus }) {
-  const iconMap: Record<CaseStatus, React.ReactNode> = {
+function StatusIcon({ status }: { status: string }) {
+  const iconMap: Record<string, React.ReactNode> = {
     open: <FolderOpen className="h-4 w-4 text-destructive" />,
     in_progress: <Loader2 className="h-4 w-4 text-warning animate-spin" />,
     resolved: <CheckCircle2 className="h-4 w-4 text-success" />,
     closed: <XCircle className="h-4 w-4 text-muted-foreground" />,
   }
 
-  return <>{iconMap[status]}</>
+  return <>{iconMap[status] ?? <FolderOpen className="h-4 w-4 text-muted-foreground" />}</>
 }
 
 // ── Stat Card ───────────────────────────────────────────────────────────
@@ -108,42 +118,67 @@ function StatCard({
 // ── Main Component ──────────────────────────────────────────────────────
 
 export function CasesList() {
+  const [cases, setCases] = useState<Case[]>([])
+  const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [priorityFilter, setPriorityFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCase, setSelectedCase] = useState<Case | null>(null)
 
+  const fetchCases = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await casesApi.list()
+      setCases(data ?? [])
+    } catch {
+      setCases([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCases()
+  }, [fetchCases])
+
   const filteredCases = useMemo(() => {
-    return mockCases.filter((c) => {
+    return cases.filter((c: any) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false
       if (priorityFilter !== "all" && c.priority !== priorityFilter) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         if (
           !c.title.toLowerCase().includes(q) &&
-          !c.id.toLowerCase().includes(q) &&
-          !c.assignee.toLowerCase().includes(q) &&
-          !c.source_ips.some((ip) => ip.includes(q))
+          !String(c.id).includes(q) &&
+          !String(c.analyst_assigned ?? "").toLowerCase().includes(q)
         ) {
           return false
         }
       }
       return true
     })
-  }, [statusFilter, priorityFilter, searchQuery])
+  }, [cases, statusFilter, priorityFilter, searchQuery])
 
   // Stats
-  const openCount = mockCases.filter((c) => c.status === "open").length
-  const inProgressCount = mockCases.filter((c) => c.status === "in_progress").length
-  const resolvedCount = mockCases.filter((c) => c.status === "resolved").length
-  const closedCount = mockCases.filter((c) => c.status === "closed").length
+  const openCount = cases.filter((c: any) => c.status === "open").length
+  const inProgressCount = cases.filter((c: any) => c.status === "in_progress").length
+  const resolvedCount = cases.filter((c: any) => c.status === "resolved").length
+  const closedCount = cases.filter((c: any) => c.status === "closed").length
 
   // Row border color by status
-  const statusRowBorder: Record<CaseStatus, string> = {
+  const statusRowBorder: Record<string, string> = {
     open: "border-l-destructive",
     in_progress: "border-l-warning",
     resolved: "border-l-success",
     closed: "border-l-muted-foreground",
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -235,7 +270,7 @@ export function CasesList() {
 
       {/* Results count */}
       <div className="text-xs text-muted-foreground">
-        Showing {filteredCases.length} of {mockCases.length} cases
+        Showing {filteredCases.length} of {cases.length} cases
       </div>
 
       {/* Cases Table */}
@@ -264,7 +299,7 @@ export function CasesList() {
                     Title
                   </th>
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground hidden lg:table-cell">
-                    Assignee
+                    Analyst
                   </th>
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground hidden lg:table-cell">
                     Updated
@@ -310,7 +345,7 @@ export function CasesList() {
                     </td>
                     <td className="py-3 hidden lg:table-cell">
                       <span className="text-xs text-muted-foreground">
-                        {c.assignee}
+                        {c.analyst_assigned}
                       </span>
                     </td>
                     <td className="py-3 hidden lg:table-cell">
@@ -327,7 +362,7 @@ export function CasesList() {
                     </td>
                     <td className="py-3">
                       <span className="text-xs font-mono text-muted-foreground">
-                        {c.related_alert_ids.length}
+                        -
                       </span>
                     </td>
                   </tr>

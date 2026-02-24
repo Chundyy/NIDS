@@ -8,7 +8,6 @@ import {
   Pencil,
   Trash2,
   ShieldCheck,
-  ShieldOff,
   AlertTriangle,
   Loader2,
   WifiOff,
@@ -17,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -144,8 +142,7 @@ export function RulesList() {
         const q = searchQuery.toLowerCase()
         if (
           !r.name.toLowerCase().includes(q) &&
-          !r.description.toLowerCase().includes(q) &&
-          !r.pattern.toLowerCase().includes(q)
+          !r.description.toLowerCase().includes(q)
         ) {
           return false
         }
@@ -154,9 +151,9 @@ export function RulesList() {
     })
   }, [rules, severityFilter, categoryFilter, searchQuery])
 
-  const enabledCount = rules.filter((r) => r.enabled).length
-  const disabledCount = rules.filter((r) => !r.enabled).length
   const criticalCount = rules.filter((r) => r.severity === "CRITICAL").length
+  const highCount = rules.filter((r) => r.severity === "HIGH").length
+  const mediumCount = rules.filter((r) => r.severity === "MEDIUM").length
 
   // ── CRUD handlers ────────────────────────────────────────────────────
 
@@ -194,11 +191,10 @@ export function RulesList() {
 
   function applyLocal(data: RuleFormData) {
     if (dialogMode === "create") {
-      const newRule: MockRule = {
+      const newRule: RuleItem = {
         ...data,
-        id: Math.max(0, ...rules.map((r) => r.id)) + 1,
+        id: `${Date.now()}`,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       }
       setRules([newRule, ...rules])
       toast.success("Rule created locally (API unavailable).")
@@ -206,7 +202,7 @@ export function RulesList() {
       setRules(
         rules.map((r) =>
           r.id === editingRule.id
-            ? { ...r, ...data, updated_at: new Date().toISOString() }
+            ? { ...r, ...data }
             : r
         )
       )
@@ -230,26 +226,6 @@ export function RulesList() {
       toast.success("Rule deleted locally (API unavailable).")
     }
     setDeleteTarget(null)
-  }
-
-  async function handleToggle(rule: RuleItem) {
-    const newEnabled = !rule.enabled
-    if (apiAvailable) {
-      try {
-        await rulesApi.update(rule.id, { enabled: newEnabled })
-        await fetchRules()
-        return
-      } catch {
-        // fallthrough to local
-      }
-    }
-    setRules(
-      rules.map((r) =>
-        r.id === rule.id
-          ? { ...r, enabled: newEnabled, updated_at: new Date().toISOString() }
-          : r
-      )
-    )
   }
 
   // ── Render ───────────────────────────────────────────────────────────
@@ -290,19 +266,19 @@ export function RulesList() {
           icon={<ShieldCheck className="h-4 w-4 text-primary" />}
         />
         <StatCard
-          label="Enabled"
-          count={enabledCount}
-          icon={<ShieldCheck className="h-4 w-4 text-success" />}
-        />
-        <StatCard
-          label="Disabled"
-          count={disabledCount}
-          icon={<ShieldOff className="h-4 w-4 text-muted-foreground" />}
-        />
-        <StatCard
           label="Critical"
           count={criticalCount}
           icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+        />
+        <StatCard
+          label="High"
+          count={highCount}
+          icon={<ShieldCheck className="h-4 w-4 text-warning" />}
+        />
+        <StatCard
+          label="Medium"
+          count={mediumCount}
+          icon={<ShieldCheck className="h-4 w-4 text-[hsl(45,93%,47%)]" />}
         />
       </div>
 
@@ -317,7 +293,7 @@ export function RulesList() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, description, pattern..."
+                placeholder="Search by name or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-secondary/50 border-border text-foreground placeholder:text-muted-foreground"
@@ -390,9 +366,6 @@ export function RulesList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="pb-2 text-left text-xs font-medium text-muted-foreground w-12">
-                    Active
-                  </th>
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground">
                     Rule Name
                   </th>
@@ -402,11 +375,8 @@ export function RulesList() {
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground">
                     Category
                   </th>
-                  <th className="pb-2 text-left text-xs font-medium text-muted-foreground hidden lg:table-cell">
-                    Pattern
-                  </th>
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground hidden md:table-cell">
-                    Updated
+                    Created
                   </th>
                   <th className="pb-2 text-right text-xs font-medium text-muted-foreground">
                     Actions
@@ -425,15 +395,8 @@ export function RulesList() {
                   return (
                     <tr
                       key={rule.id}
-                      className={`border-b border-border/50 border-l-2 hover:bg-accent/50 transition-colors ${severityBorder[rule.severity] ?? "border-l-muted-foreground"} ${!rule.enabled ? "opacity-50" : ""}`}
+                      className={`border-b border-border/50 border-l-2 hover:bg-accent/50 transition-colors ${severityBorder[rule.severity] ?? "border-l-muted-foreground"}`}
                     >
-                      <td className="py-3 pl-3">
-                        <Switch
-                          checked={rule.enabled}
-                          onCheckedChange={() => handleToggle(rule)}
-                          aria-label={`Toggle ${rule.name}`}
-                        />
-                      </td>
                       <td className="py-3">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-xs font-medium text-foreground">
@@ -450,19 +413,14 @@ export function RulesList() {
                       <td className="py-3">
                         <CategoryBadge category={rule.category} />
                       </td>
-                      <td className="py-3 hidden lg:table-cell">
-                        <span className="text-[10px] font-mono text-muted-foreground max-w-[200px] truncate block">
-                          {rule.pattern}
-                        </span>
-                      </td>
                       <td className="py-3 hidden md:table-cell">
-                        {rule.updated_at && (
+                        {rule.created_at && (
                           <div className="flex flex-col">
                             <span className="text-xs text-foreground">
-                              {format(new Date(rule.updated_at), "MMM dd, HH:mm")}
+                              {format(new Date(rule.created_at), "MMM dd, HH:mm")}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
-                              {formatDistanceToNow(new Date(rule.updated_at), {
+                              {formatDistanceToNow(new Date(rule.created_at), {
                                 addSuffix: true,
                               })}
                             </span>
@@ -496,7 +454,7 @@ export function RulesList() {
                 })}
                 {filteredRules.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={5} className="py-12 text-center">
                       <p className="text-sm text-muted-foreground">
                         No rules match your filters.
                       </p>
@@ -521,9 +479,7 @@ export function RulesList() {
                 name: editingRule.name,
                 description: editingRule.description,
                 severity: editingRule.severity,
-                enabled: editingRule.enabled,
                 category: editingRule.category,
-                pattern: editingRule.pattern,
               }
             : null
         }

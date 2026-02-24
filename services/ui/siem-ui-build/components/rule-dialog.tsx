@@ -20,16 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
 
 export interface RuleFormData {
   name: string
   description: string
   severity: string
-  enabled: boolean
   category: string
-  pattern: string
 }
 
 interface RuleDialogProps {
@@ -44,9 +41,7 @@ const defaultForm: RuleFormData = {
   name: "",
   description: "",
   severity: "MEDIUM",
-  enabled: true,
   category: "web_exploit",
-  pattern: "",
 }
 
 export function RuleDialog({
@@ -127,21 +122,6 @@ export function RuleDialog({
               />
             </div>
 
-            {/* Pattern */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="rule-pattern" className="text-xs text-muted-foreground">
-                Pattern / Signature
-              </Label>
-              <Input
-                id="rule-pattern"
-                required
-                value={form.pattern}
-                onChange={(e) => setForm({ ...form, pattern: e.target.value })}
-                placeholder="Regex or detection pattern"
-                className="bg-secondary/50 border-border text-foreground font-mono text-xs"
-              />
-            </div>
-
             {/* Severity + Category row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
@@ -181,17 +161,6 @@ export function RuleDialog({
               </div>
             </div>
 
-            {/* Enabled toggle */}
-            <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-              <Label htmlFor="rule-enabled" className="text-sm text-foreground cursor-pointer">
-                Rule Enabled
-              </Label>
-              <Switch
-                id="rule-enabled"
-                checked={form.enabled}
-                onCheckedChange={(v) => setForm({ ...form, enabled: v })}
-              />
-            </div>
           </div>
 
           <DialogFooter>

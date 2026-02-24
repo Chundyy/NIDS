@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import alerts, scans, malware, auth, rules
+from routers import alerts, scans, malware, auth, rules, cases, hosts, reports
 from ml.engine import IDSPredictor
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -33,6 +33,9 @@ app.add_middleware(
 app.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
 app.include_router(scans.router, prefix="/scans", tags=["Scans"])
 app.include_router(malware.router, prefix="/malware", tags=["Malware"])
+app.include_router(cases.router, prefix="/cases", tags=["Cases"])
+app.include_router(hosts.router, prefix="/hosts", tags=["Hosts"])
+app.include_router(reports.router, prefix="/reports", tags=["Reports"])
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(rules.router, prefix="/rules", tags=["Rules"])
 

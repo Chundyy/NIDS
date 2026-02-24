@@ -24,3 +24,6 @@ __pycache__/
 
 # Logs e quarentena
 services/api/quarantine/*.csv
+
+# Suricata config (credenciais de SSH)
+services/api/suricata.py

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   Search,
   Filter,
@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   ShieldBan,
   AlertTriangle,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,33 +23,38 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  mockHosts,
+  hostsApi,
   type Host,
-  type HostStatus,
-  hostStatusLabels,
-} from "@/lib/mock-data"
+} from "@/lib/api"
 import { HostDetailDrawer } from "@/components/host-detail-drawer"
 import { formatDistanceToNow } from "date-fns"
 
 // ── Badge Components ────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: HostStatus }) {
-  const colorMap: Record<HostStatus, string> = {
+function StatusBadge({ status }: { status: string }) {
+  const colorMap: Record<string, string> = {
     online: "bg-success/15 text-success border-success/30",
     offline: "bg-muted text-muted-foreground border-border",
     compromised: "bg-destructive/15 text-destructive border-destructive/30",
     quarantined: "bg-warning/15 text-warning border-warning/30",
   }
 
+  const labelMap: Record<string, string> = {
+    online: "Online",
+    offline: "Offline",
+    compromised: "Compromised",
+    quarantined: "Quarantined",
+  }
+
   return (
-    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colorMap[status]}`}>
-      {hostStatusLabels[status]}
+    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${colorMap[status] ?? "bg-muted text-muted-foreground border-border"}`}>
+      {labelMap[status] ?? status}
     </Badge>
   )
 }
 
-function StatusDot({ status }: { status: HostStatus }) {
-  const colorMap: Record<HostStatus, string> = {
+function StatusDot({ status }: { status: string }) {
+  const colorMap: Record<string, string> = {
     online: "bg-success",
     offline: "bg-muted-foreground",
     compromised: "bg-destructive",
@@ -57,7 +63,7 @@ function StatusDot({ status }: { status: HostStatus }) {
 
   return (
     <span
-      className={`inline-block h-2.5 w-2.5 rounded-full ${colorMap[status]} ${status === "online" ? "animate-pulse" : ""}`}
+      className={`inline-block h-2.5 w-2.5 rounded-full ${colorMap[status] ?? "bg-muted-foreground"} ${status === "online" ? "animate-pulse" : ""}`}
     />
   )
 }
@@ -119,38 +125,63 @@ function StatCard({
 // ── Main Component ──────────────────────────────────────────────────────
 
 export function HostsList() {
+  const [hosts, setHosts] = useState<Host[]>([])
+  const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedHost, setSelectedHost] = useState<Host | null>(null)
 
+  const fetchHosts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await hostsApi.list()
+      setHosts(data ?? [])
+    } catch {
+      setHosts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchHosts()
+  }, [fetchHosts])
+
   const filteredHosts = useMemo(() => {
-    return mockHosts.filter((h) => {
+    return hosts.filter((h: any) => {
       if (statusFilter !== "all" && h.status !== statusFilter) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         if (
           !h.hostname.toLowerCase().includes(q) &&
-          !h.ip.includes(q) &&
-          !h.os.toLowerCase().includes(q) &&
-          !h.mac.toLowerCase().includes(q)
+          !h.ip_address.includes(q) &&
+          !h.os.toLowerCase().includes(q)
         ) {
           return false
         }
       }
       return true
     })
-  }, [statusFilter, searchQuery])
+  }, [hosts, statusFilter, searchQuery])
 
-  const onlineCount = mockHosts.filter((h) => h.status === "online").length
-  const offlineCount = mockHosts.filter((h) => h.status === "offline").length
-  const compromisedCount = mockHosts.filter((h) => h.status === "compromised").length
-  const quarantinedCount = mockHosts.filter((h) => h.status === "quarantined").length
+  const onlineCount = hosts.filter((h: any) => h.status === "online").length
+  const offlineCount = hosts.filter((h: any) => h.status === "offline").length
+  const compromisedCount = hosts.filter((h: any) => h.status === "compromised").length
+  const quarantinedCount = hosts.filter((h: any) => h.status === "quarantined").length
 
-  const statusRowBorder: Record<HostStatus, string> = {
+  const statusRowBorder: Record<string, string> = {
     online: "border-l-success",
     offline: "border-l-muted-foreground",
     compromised: "border-l-destructive",
     quarantined: "border-l-warning",
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -190,7 +221,7 @@ export function HostsList() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by hostname, IP, OS, MAC..."
+                placeholder="Search by hostname, IP, OS..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-secondary/50 border-border text-foreground placeholder:text-muted-foreground"
@@ -227,7 +258,7 @@ export function HostsList() {
 
       {/* Results count */}
       <div className="text-xs text-muted-foreground">
-        Showing {filteredHosts.length} of {mockHosts.length} hosts
+        Showing {filteredHosts.length} of {hosts.length} hosts
       </div>
 
       {/* Hosts Table */}
@@ -266,7 +297,7 @@ export function HostsList() {
                     OS
                   </th>
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground hidden lg:table-cell">
-                    Resources
+                    Risk Level
                   </th>
                   <th className="pb-2 text-left text-xs font-medium text-muted-foreground hidden lg:table-cell">
                     Last Seen
@@ -301,7 +332,7 @@ export function HostsList() {
                     </td>
                     <td className="py-3">
                       <span className="text-xs font-mono text-foreground">
-                        {host.ip}
+                        {host.ip_address}
                       </span>
                     </td>
                     <td className="py-3">
@@ -313,14 +344,9 @@ export function HostsList() {
                       </span>
                     </td>
                     <td className="py-3 hidden lg:table-cell">
-                      {host.status === "online" || host.status === "compromised" ? (
-                        <div className="flex flex-col gap-1">
-                          <MiniUsageBar label="CPU" value={host.cpu_usage} />
-                          <MiniUsageBar label="MEM" value={host.memory_usage} />
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">--</span>
-                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {host.risk_level}
+                      </span>
                     </td>
                     <td className="py-3 hidden lg:table-cell">
                       <span className="text-xs text-muted-foreground">

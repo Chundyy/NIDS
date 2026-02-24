@@ -32,18 +32,19 @@ async function apiFetch<T>(
 // ── Rules API ────────────────────────────────────────────────────────
 
 export interface Rule {
-  id: number
+  id: string
   name: string
   description: string
   severity: string
-  enabled: boolean
   category: string
-  pattern: string
+  sid?: number
+  action?: string
+  last_triggered?: string | null
+  synced_to_suricata?: boolean
   created_at?: string
-  updated_at?: string
 }
 
-export type RuleCreate = Omit<Rule, "id" | "created_at" | "updated_at">
+export type RuleCreate = Omit<Rule, "id" | "created_at" | "last_triggered" | "synced_to_suricata">
 export type RuleUpdate = Partial<RuleCreate>
 
 export const rulesApi = {
@@ -53,12 +54,12 @@ export const rulesApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  update: (id: number, data: RuleUpdate) =>
+  update: (id: string, data: RuleUpdate) =>
     apiFetch<Rule>(`/rules/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  delete: (id: number) =>
+  delete: (id: string) =>
     apiFetch<void>(`/rules/${id}`, {
       method: "DELETE",
     }),
@@ -81,6 +82,72 @@ export interface MalwareReport {
 
 export const malwareApi = {
   list: () => apiFetch<MalwareReport[]>("/malware/"),
+}
+
+// ── Cases API ────────────────────────────────────────────────────────
+
+export interface Case {
+  id: number
+  title: string
+  status: string
+  priority: string
+  description: string
+  analyst_assigned: string
+  created_at: string
+  updated_at: string
+}
+
+export const casesApi = {
+  list: () => apiFetch<Case[]>("/cases/"),
+}
+
+// ── Hosts API ────────────────────────────────────────────────────────
+
+export interface Host {
+  id: number
+  hostname: string
+  ip_address: string
+  os: string
+  status: string
+  risk_level: string
+  last_seen: string
+  alerts_count: number
+  created_at: string
+  updated_at: string
+}
+
+export const hostsApi = {
+  list: () => apiFetch<Host[]>("/hosts/"),
+}
+
+// ── Daily Reports API ────────────────────────────────────────────────
+
+export interface DailyReport {
+  id: number
+  report_date: string
+  total_threats: number
+  critical_count: number
+  high_count: number
+  medium_count: number
+  low_count: number
+  summary: string
+  file_path?: string
+  generated_by: string
+  created_at: string
+  updated_at: string
+}
+
+export const reportsApi = {
+  list: () => apiFetch<DailyReport[]>("/reports/"),
+  generate: (report_date?: string) =>
+    apiFetch<DailyReport>("/reports/generate", {
+      method: "POST",
+      body: JSON.stringify({ report_date }),
+    }),
+  download: (id: number) => {
+    const url = `${API_BASE}/reports/${id}/download`
+    window.open(url, "_blank")
+  },
 }
 
 // ── Alerts API ───────────────────────────────────────────────────────
