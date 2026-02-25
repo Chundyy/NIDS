@@ -508,15 +508,25 @@ export function ReportsList() {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 whitespace-nowrap"
-                        onClick={() => reportsApi.download(report.id)}
-                      >
-                        <Download className="h-4 w-4" />
-                        Download
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 whitespace-nowrap"
+                          onClick={() => reportsApi.downloadHTML(report.id)}
+                        >
+                          <Download className="h-4 w-4" />
+                          HTML
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 whitespace-nowrap"
+                          onClick={() => reportsApi.download(report.id)}
+                        >
+                          JSON
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

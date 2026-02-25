@@ -27,6 +27,14 @@ export interface RuleFormData {
   description: string
   severity: string
   category: string
+  action: string
+  protocol: string
+  source_ip: string
+  source_port: string
+  direction: string
+  destination_ip: string
+  destination_port: string
+  message: string
 }
 
 interface RuleDialogProps {
@@ -42,6 +50,14 @@ const defaultForm: RuleFormData = {
   description: "",
   severity: "MEDIUM",
   category: "web_exploit",
+  action: "alert",
+  protocol: "tcp",
+  source_ip: "any",
+  source_port: "any",
+  direction: "->",
+  destination_ip: "any",
+  destination_port: "any",
+  message: "",
 }
 
 export function RuleDialog({
@@ -159,6 +175,138 @@ export function RuleDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Action + Protocol row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Action</Label>
+                <Select
+                  value={form.action}
+                  onValueChange={(v) => setForm({ ...form, action: v })}
+                >
+                  <SelectTrigger className="bg-secondary/50 border-border text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alert">Alert</SelectItem>
+                    <SelectItem value="pass">Pass</SelectItem>
+                    <SelectItem value="drop">Drop</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Protocol</Label>
+                <Select
+                  value={form.protocol}
+                  onValueChange={(v) => setForm({ ...form, protocol: v })}
+                >
+                  <SelectTrigger className="bg-secondary/50 border-border text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tcp">TCP</SelectItem>
+                    <SelectItem value="udp">UDP</SelectItem>
+                    <SelectItem value="icmp">ICMP</SelectItem>
+                    <SelectItem value="ip">IP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Source IP + Port row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="source-ip" className="text-xs text-muted-foreground">
+                  Source IP
+                </Label>
+                <Input
+                  id="source-ip"
+                  required
+                  value={form.source_ip}
+                  onChange={(e) => setForm({ ...form, source_ip: e.target.value })}
+                  placeholder="any"
+                  className="bg-secondary/50 border-border text-foreground"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="source-port" className="text-xs text-muted-foreground">
+                  Source Port
+                </Label>
+                <Input
+                  id="source-port"
+                  required
+                  value={form.source_port}
+                  onChange={(e) => setForm({ ...form, source_port: e.target.value })}
+                  placeholder="any"
+                  className="bg-secondary/50 border-border text-foreground"
+                />
+              </div>
+            </div>
+
+            {/* Direction */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">Direction</Label>
+              <Select
+                value={form.direction}
+                onValueChange={(v) => setForm({ ...form, direction: v })}
+              >
+                <SelectTrigger className="bg-secondary/50 border-border text-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="->">→ (Unidirectional)</SelectItem>
+                  <SelectItem value="<>">↔ (Bidirectional)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Destination IP + Port row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dest-ip" className="text-xs text-muted-foreground">
+                  Destination IP
+                </Label>
+                <Input
+                  id="dest-ip"
+                  required
+                  value={form.destination_ip}
+                  onChange={(e) => setForm({ ...form, destination_ip: e.target.value })}
+                  placeholder="any"
+                  className="bg-secondary/50 border-border text-foreground"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dest-port" className="text-xs text-muted-foreground">
+                  Destination Port
+                </Label>
+                <Input
+                  id="dest-port"
+                  required
+                  value={form.destination_port}
+                  onChange={(e) => setForm({ ...form, destination_port: e.target.value })}
+                  placeholder="any"
+                  className="bg-secondary/50 border-border text-foreground"
+                />
+              </div>
+            </div>
+
+            {/* Message */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="message" className="text-xs text-muted-foreground">
+                Message (Alert Description)
+              </Label>
+              <Input
+                id="message"
+                required
+                value={form.message}
+                onChange={(e) => setForm({ ...form, message: e.target.value })}
+                placeholder="e.g. Alert on example.com"
+                className="bg-secondary/50 border-border text-foreground"
+              />
             </div>
 
           </div>

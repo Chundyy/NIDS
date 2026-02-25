@@ -159,3 +159,595 @@ def download_report(report_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{report_id}/html")
+def download_report_html(report_id: int):
+    """Download a professional HTML report with charts and analysis"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Get report data
+        cur.execute("""
+            SELECT id, report_date, total_threats, critical_count, high_count, medium_count, low_count, 
+                   summary, file_path, generated_by, created_at
+            FROM daily_reports 
+            WHERE id = %s
+        """, (report_id,))
+        
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Report not found")
+        
+        report_date = row[1]
+        total_threats = row[2]
+        critical_count = row[3]
+        high_count = row[4]
+        medium_count = row[5]
+        low_count = row[6]
+        summary = row[7]
+        generated_at = row[10]
+        
+        # Get detailed malware list for the day
+        cur.execute("""
+            SELECT name, type, severity, source_ip, detected_at, description
+            FROM malware_reports 
+            WHERE DATE(detected_at) = %s
+            ORDER BY 
+                CASE severity 
+                    WHEN 'CRITICAL' THEN 1 
+                    WHEN 'HIGH' THEN 2 
+                    WHEN 'MEDIUM' THEN 3 
+                    ELSE 4 
+                END,
+                detected_at DESC
+            LIMIT 20
+        """, (report_date,))
+        
+        malware_list = cur.fetchall()
+        
+        # Get trend data (last 7 days)
+        cur.execute("""
+            SELECT report_date, total_threats, critical_count, high_count, medium_count, low_count
+            FROM daily_reports 
+            WHERE report_date <= %s
+            ORDER BY report_date DESC
+            LIMIT 7
+        """, (report_date,))
+        
+        trend_data = cur.fetchall()
+        conn.close()
+        
+        # Generate analysis and recommendations
+        analysis = generate_analysis(total_threats, critical_count, high_count, medium_count, low_count, trend_data)
+        recommendations = generate_recommendations(total_threats, critical_count, high_count, malware_list)
+        
+        # Build malware table HTML
+        malware_rows = ""
+        for malware in malware_list:
+            severity_class = malware[2].lower() if malware[2] else 'low'
+            malware_rows += f"""
+                <tr>
+                    <td>{malware[0]}</td>
+                    <td>{malware[1] or 'Unknown'}</td>
+                    <td><span class="severity-badge {severity_class}">{malware[2]}</span></td>
+                    <td>{malware[3] or 'N/A'}</td>
+                    <td>{malware[4].strftime('%H:%M:%S') if malware[4] else 'N/A'}</td>
+                </tr>
+            """
+        
+        # Prepare chart data
+        trend_dates = [t[0].strftime('%Y-%m-%d') for t in reversed(trend_data)]
+        trend_totals = [t[1] for t in reversed(trend_data)]
+        trend_critical = [t[2] for t in reversed(trend_data)]
+        trend_high = [t[3] for t in reversed(trend_data)]
+        
+        html_content = generate_html_template(
+            report_date=report_date.strftime('%Y-%m-%d'),
+            total_threats=total_threats,
+            critical_count=critical_count,
+            high_count=high_count,
+            medium_count=medium_count,
+            low_count=low_count,
+            summary=summary,
+            malware_rows=malware_rows,
+            analysis=analysis,
+            recommendations=recommendations,
+            trend_dates=trend_dates,
+            trend_totals=trend_totals,
+            trend_critical=trend_critical,
+            trend_high=trend_high,
+            generated_at=generated_at.strftime('%Y-%m-%d %H:%M:%S') if generated_at else 'N/A'
+        )
+        
+        filename = f"Security_Report_{report_date}.html"
+        
+        return Response(
+            content=html_content,
+            media_type="text/html",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def generate_analysis(total, critical, high, medium, low, trend_data):
+    """Generate intelligent analysis based on threat data"""
+    analysis = []
+    
+    # Threat level assessment
+    if critical > 0:
+        analysis.append(f"<strong>Alto Risco:</strong> {critical} ameaças críticas detectadas que requerem ação imediata.")
+    elif high > 5:
+        analysis.append(f"<strong>Risco Moderado:</strong> {high} ameaças de alta severidade identificadas.")
+    else:
+        analysis.append("<strong>Risco Baixo:</strong> Nenhuma ameaça crítica detectada hoje.")
+    
+    # Trend analysis
+    if len(trend_data) >= 2:
+        today_threats = trend_data[0][1]
+        yesterday_threats = trend_data[1][1]
+        diff = today_threats - yesterday_threats
+        percent_change = (diff / yesterday_threats * 100) if yesterday_threats > 0 else 0
+        
+        if diff > 0:
+            analysis.append(f"<strong>Tendência:</strong> Aumento de {abs(diff)} ameaças ({percent_change:.1f}%) comparado com ontem.")
+        elif diff < 0:
+            analysis.append(f"<strong>Tendência:</strong> Redução de {abs(diff)} ameaças ({abs(percent_change):.1f}%) comparado com ontem.")
+        else:
+            analysis.append("<strong>Tendência:</strong> Nível de ameaças estável.")
+    
+    # Average calculation
+    avg_threats = sum(t[1] for t in trend_data) / len(trend_data) if trend_data else 0
+    if total > avg_threats * 1.5:
+        analysis.append(f"<strong>Análise Estatística:</strong> Hoje registou {total - avg_threats:.0f} ameaças acima da média semanal ({avg_threats:.0f}).")
+    
+    return "<br>".join(analysis)
+
+
+def generate_recommendations(total, critical, high, malware_list):
+    """Generate actionable recommendations"""
+    recommendations = []
+    
+    if critical > 0:
+        recommendations.append("<strong>Ação Imediata:</strong> Isolar sistemas comprometidos e iniciar análise forense.")
+        recommendations.append("Verificar logs de autenticação e acessos não autorizados.")
+    
+    if high > 3:
+        recommendations.append("<strong>Prioridade Alta:</strong> Atualizar definições antivírus em todos os endpoints.")
+        recommendations.append("Reforçar regras de firewall e segmentação de rede.")
+    
+    if total > 10:
+        recommendations.append("Conduzir campanha de awareness sobre phishing com colaboradores.")
+        recommendations.append("Agendar scan completo de vulnerabilidades nos sistemas críticos.")
+    
+    # Check for specific threat types
+    threat_types = [m[1] for m in malware_list if m[1]]
+    if any('Ransomware' in t for t in threat_types):
+        recommendations.append("<strong>Ransomware Detectado:</strong> Verificar integridade dos backups imediatamente.")
+    
+    if any('Trojan' in t for t in threat_types):
+        recommendations.append("Forçar reset de passwords em contas com atividade suspeita.")
+    
+    if not recommendations:
+        recommendations.append("Sistema estável. Manter monitorização contínua.")
+        recommendations.append("Rever políticas de segurança e access control.")
+    
+    return "<br>".join(recommendations)
+
+
+def generate_html_template(report_date, total_threats, critical_count, high_count, medium_count, 
+                          low_count, summary, malware_rows, analysis, recommendations,
+                          trend_dates, trend_totals, trend_critical, trend_high, generated_at):
+    """Generate professional HTML report template"""
+    return f"""
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Segurança - {report_date}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #333;
+            min-height: 100vh;
+        }}
+        
+        .container {{
+            min-height: 100vh;
+            background: white;
+        }}
+        
+        .header {{
+            background: #0f3460;
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }}
+        
+        .header h1 {{
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }}
+        
+        .header .subtitle {{
+            font-size: 18px;
+            opacity: 0.9;
+        }}
+        
+        .content {{
+            padding: 40px;
+        }}
+        
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        
+        .stat-card {{
+            background: #16213e;
+            padding: 25px;
+            border-radius: 8px;
+            color: white;
+            border: 2px solid #16213e;
+        }}
+        
+        .stat-card.critical {{
+            background: #c1121f;
+            border-color: #c1121f;
+        }}
+        
+        .stat-card.high {{
+            background: #ff6700;
+            border-color: #ff6700;
+        }}
+        
+        .stat-card.medium {{
+            background: #ffa500;
+            border-color: #ffa500;
+        }}
+        
+        .stat-card.low {{
+            background: #2d6a4f;
+            border-color: #2d6a4f;
+        }}
+        
+        .stat-card h3 {{
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+        
+        .stat-card .number {{
+            font-size: 48px;
+            font-weight: bold;
+        }}
+        
+        .section {{
+            margin-bottom: 40px;
+        }}
+        
+        .section h2 {{
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #0f3460;
+            border-bottom: 3px solid #0f3460;
+            padding-bottom: 10px;
+        }}
+        
+        .analysis-box, .recommendations-box {{
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border-left: 4px solid #0f3460;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }}
+        
+        .recommendations-box {{
+            border-left-color: #2d6a4f;
+        }}
+        
+        .chart-container {{
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }}
+        
+        .charts-grid {{
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }}
+        
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border: 1px solid #dee2e6;
+        }}
+        
+        th {{
+            background: #0f3460;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }}
+        
+        td {{
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }}
+        
+        tr:hover {{
+            background: #f8f9fa;
+        }}
+        
+        .severity-badge {{
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+        
+        .severity-badge.critical {{
+            background: #c1121f;
+            color: white;
+        }}
+        
+        .severity-badge.high {{
+            background: #ff6700;
+            color: white;
+        }}
+        
+        .severity-badge.medium {{
+            background: #ffa500;
+            color: white;
+        }}
+        
+        .severity-badge.low {{
+            background: #2d6a4f;
+            color: white;
+        }}
+        
+        .footer {{
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }}
+        
+        .footer strong {{
+            color: #333;
+        }}
+        
+        @media print {{
+            body {{
+                background: white;
+            }}
+            .container {{
+                box-shadow: none;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Relatório de Segurança</h1>
+            <div class="subtitle">Network Intrusion Detection System</div>
+            <div class="subtitle" style="margin-top: 10px; font-size: 16px;">{report_date}</div>
+        </div>
+        
+        <div class="content">
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total de Ameaças</h3>
+                    <div class="number">{total_threats}</div>
+                </div>
+                <div class="stat-card critical">
+                    <h3>Críticas</h3>
+                    <div class="number">{critical_count}</div>
+                </div>
+                <div class="stat-card high">
+                    <h3>Altas</h3>
+                    <div class="number">{high_count}</div>
+                </div>
+                <div class="stat-card medium">
+                    <h3>Médias</h3>
+                    <div class="number">{medium_count}</div>
+                </div>
+                <div class="stat-card low">
+                    <h3>Baixas</h3>
+                    <div class="number">{low_count}</div>
+                </div>
+            </div>
+            
+            <!-- Analysis Section -->
+            <div class="section">
+                <h2>Análise Executiva</h2>
+                <div class="analysis-box">
+                    {analysis}
+                </div>
+            </div>
+            
+            <!-- Recommendations Section -->
+            <div class="section">
+                <h2>Recomendações</h2>
+                <div class="recommendations-box">
+                    {recommendations}
+                </div>
+            </div>
+            
+            <!-- Charts Section -->
+            <div class="section">
+                <h2>Visualização de Dados</h2>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <canvas id="severityChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Malware List -->
+            <div class="section">
+                <h2>Ameaças Detectadas (Top 20)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Tipo</th>
+                            <th>Severidade</th>
+                            <th>IP Origem</th>
+                            <th>Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {malware_rows if malware_rows else '<tr><td colspan="5" style="text-align:center;">Nenhuma ameaça detectada</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <strong>Network Intrusion Detection System (NIDS)</strong><br>
+            Relatório gerado automaticamente em <strong>{generated_at}</strong><br>
+            <em>Este documento é confidencial e destinado apenas para uso interno</em>
+        </div>
+    </div>
+    
+    <script>
+        // Severity Distribution Pie Chart
+        const severityCtx = document.getElementById('severityChart').getContext('2d');
+        new Chart(severityCtx, {{
+            type: 'doughnut',
+            data: {{
+                labels: ['Críticas', 'Altas', 'Médias', 'Baixas'],
+                datasets: [{{
+                    data: [{critical_count}, {high_count}, {medium_count}, {low_count}],
+                    backgroundColor: [
+                        '#c1121f',
+                        '#ff6700',
+                        '#ffa500',
+                        '#2d6a4f'
+                    ],
+                    borderWidth: 0
+                }}]
+            }},
+            options: {{
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {{
+                    legend: {{
+                        position: 'bottom'
+                    }},
+                    title: {{
+                        display: true,
+                        text: 'Distribuição por Severidade',
+                        font: {{
+                            size: 14,
+                            weight: 'bold'
+                        }}
+                    }}
+                }}
+            }}
+        }});
+        
+        // Trend Line Chart
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        new Chart(trendCtx, {{
+            type: 'line',
+            data: {{
+                labels: {trend_dates},
+                datasets: [
+                    {{
+                        label: 'Total',
+                        data: {trend_totals},
+                        borderColor: '#0f3460',
+                        backgroundColor: '#0f3460',
+                        tension: 0.4,
+                        fill: false,
+                        borderWidth: 3
+                    }},
+                    {{
+                        label: 'Críticas',
+                        data: {trend_critical},
+                        borderColor: '#c1121f',
+                        backgroundColor: '#c1121f',
+                        tension: 0.4,
+                        fill: false,
+                        borderWidth: 2
+                    }},
+                    {{
+                        label: 'Altas',
+                        data: {trend_high},
+                        borderColor: '#ff6700',
+                        backgroundColor: '#ff6700',
+                        tension: 0.4,
+                        fill: false,
+                        borderWidth: 2
+                    }}
+                ]
+            }},
+            options: {{
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {{
+                    legend: {{
+                        position: 'bottom'
+                    }},
+                    title: {{
+                        display: true,
+                        text: 'Tendência (Últimos 7 Dias)',
+                        font: {{
+                            size: 14,
+                            weight: 'bold'
+                        }}
+                    }}
+                }},
+                scales: {{
+                    y: {{
+                        beginAtZero: true,
+                        ticks: {{
+                            stepSize: 1
+                        }}
+                    }}
+                }}
+            }}
+        }});
+    </script>
+</body>
+</html>
+    """

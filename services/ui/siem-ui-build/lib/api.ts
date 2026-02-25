@@ -148,6 +148,10 @@ export const reportsApi = {
     const url = `${API_BASE}/reports/${id}/download`
     window.open(url, "_blank")
   },
+  downloadHTML: (id: number) => {
+    const url = `${API_BASE}/reports/${id}/html`
+    window.open(url, "_blank")
+  },
 }
 
 // ── Alerts API ───────────────────────────────────────────────────────
