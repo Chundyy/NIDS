@@ -18,13 +18,24 @@ import { AlertDetailDrawer } from "@/components/alert-detail-drawer"
 import { formatDistanceToNow, format } from "date-fns"
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
-type Category = "web_exploit" | "network_scan" | "brute_force" | "anomaly"
 
-const categoryLabels: Record<Category, string> = {
-  web_exploit: "Web Exploit",
-  network_scan: "Network Scan",
-  brute_force: "Brute Force",
-  anomaly: "Anomaly",
+function formatCategory(category: string | undefined): string {
+  if (!category) return "Unknown"
+  // Mapeamento de categorias conhecidas
+  const labels: Record<string, string> = {
+    web_exploit: "Web Exploit",
+    network_scan: "Network Scan",
+    brute_force: "Brute Force",
+    anomaly: "Anomaly",
+    trojan: "Trojan",
+    malware: "Malware",
+    dos: "DoS Attack",
+    ddos: "DDoS Attack",
+    "policy-violation": "Policy Violation",
+    "protocol-command-decode": "Protocol Command",
+    "bad-unknown": "Bad/Unknown",
+  }
+  return labels[category] || category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 interface AlertFixed {
@@ -33,7 +44,7 @@ interface AlertFixed {
   severity: Severity
   source_ip: string
   destination_ip: string
-  category?: Category
+  category?: string  // Aceita qualquer categoria
   description?: string
   payload?: string
   [key: string]: any
@@ -61,14 +72,14 @@ function SeverityBadge({ severity }: { severity: Severity }) {
   )
 }
 
-function CategoryBadge({ category }: { category?: Category }) {
+function CategoryBadge({ category }: { category?: string }) {
   if (!category) return null
   return (
     <Badge
       variant="secondary"
       className="text-[10px] px-1.5 py-0 bg-secondary text-secondary-foreground"
     >
-      {categoryLabels[category]}
+      {formatCategory(category)}
     </Badge>
   )
 }
@@ -105,7 +116,7 @@ export default function AlertsList() {
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert) => {
       if (severityFilter !== "all" && alert.severity !== (severityFilter as Severity)) return false
-      if (categoryFilter !== "all" && alert.category !== (categoryFilter as Category)) return false
+      if (categoryFilter !== "all" && alert.category !== categoryFilter) return false
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
@@ -120,6 +131,17 @@ export default function AlertsList() {
       return true
     })
   }, [alerts, severityFilter, categoryFilter, searchQuery])
+
+  // Extrair categorias únicas dos alertas
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>()
+    alerts.forEach((alert) => {
+      if (alert.category) {
+        categories.add(alert.category)
+      }
+    })
+    return Array.from(categories).sort()
+  }, [alerts])
 
   const severityRowBorder: Record<Severity, string> = {
     CRITICAL: "border-l-destructive",
@@ -175,10 +197,11 @@ export default function AlertsList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="web_exploit">Web Exploit</SelectItem>
-                <SelectItem value="network_scan">Network Scan</SelectItem>
-                <SelectItem value="brute_force">Brute Force</SelectItem>
-                <SelectItem value="anomaly">Anomaly</SelectItem>
+                {uniqueCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {formatCategory(cat)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

@@ -157,6 +157,35 @@ export function RulesList() {
   const highCount = rules.filter((r) => r.severity === "HIGH").length
   const mediumCount = rules.filter((r) => r.severity === "MEDIUM").length
 
+  // Extrair categorias únicas das regras
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>()
+    rules.forEach((rule) => {
+      if (rule.category) {
+        categories.add(rule.category)
+      }
+    })
+    return Array.from(categories).sort()
+  }, [rules])
+
+  // Helper para formatar categorias
+  function formatCategory(category: string): string {
+    const labels: Record<string, string> = {
+      web_exploit: "Web Exploit",
+      network_scan: "Network Scan",
+      brute_force: "Brute Force",
+      anomaly: "Anomaly",
+      trojan: "Trojan",
+      malware: "Malware",
+      dos: "DoS Attack",
+      ddos: "DDoS Attack",
+      "policy-violation": "Policy Violation",
+      "protocol-command-decode": "Protocol Command",
+      "bad-unknown": "Bad/Unknown",
+    }
+    return labels[category] || category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  }
+
   // ── CRUD handlers ────────────────────────────────────────────────────
 
   function openCreate() {
@@ -336,10 +365,11 @@ export function RulesList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="web_exploit">Web Exploit</SelectItem>
-                <SelectItem value="network_scan">Network Scan</SelectItem>
-                <SelectItem value="brute_force">Brute Force</SelectItem>
-                <SelectItem value="anomaly">Anomaly</SelectItem>
+                {uniqueCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {formatCategory(cat)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {(severityFilter !== "all" ||

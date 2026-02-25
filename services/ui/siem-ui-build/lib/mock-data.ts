@@ -1,5 +1,4 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
-export type Category = "web_exploit" | "network_scan" | "brute_force" | "anomaly"
 
 export interface Alert {
   id: string
@@ -7,9 +6,15 @@ export interface Alert {
   severity: Severity
   source_ip: string
   destination_ip: string
-  category: Category
+  category: string  // Aceita qualquer categoria
   description: string
   payload: string
+}
+
+// Helper para formatar qualquer categoria
+export function formatCategory(category: string | undefined): string {
+  if (!category) return "Unknown"
+  return category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 export const mockAlerts: Alert[] = [
@@ -727,9 +732,17 @@ export const severityColors: Record<Severity, string> = {
   LOW: "hsl(210, 100%, 52%)",
 }
 
-export const categoryLabels: Record<Category, string> = {
+// Labels para categorias conhecidas (fallback para formatCategory)
+export const categoryLabels: Record<string, string> = {
   web_exploit: "Web Exploit",
   network_scan: "Network Scan",
   brute_force: "Brute Force",
   anomaly: "Anomaly",
+  trojan: "Trojan",
+  malware: "Malware",
+  dos: "DoS Attack",
+  ddos: "DDoS Attack",
+  "policy-violation": "Policy Violation",
+  "protocol-command-decode": "Protocol Command",
+  "bad-unknown": "Bad/Unknown",
 }

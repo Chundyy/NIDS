@@ -21,7 +21,6 @@ import {
 } from "recharts";
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-type Category = "web_exploit" | "network_scan" | "brute_force" | "anomaly";
 
 interface AlertFixed {
   id?: string;
@@ -29,7 +28,7 @@ interface AlertFixed {
   severity: Severity;
   source_ip: string;
   destination_ip: string;
-  category?: Category;
+  category?: string;  // Aceita qualquer categoria
   description?: string;
   payload?: string;
   [key: string]: any;
@@ -57,21 +56,16 @@ function normalizeSeverity(input: unknown): Severity {
 }
 
 function getAlertsByCategory(alerts: AlertFixed[]) {
-  const counts: Record<Category, number> = {
-    web_exploit: 0,
-    network_scan: 0,
-    brute_force: 0,
-    anomaly: 0,
-  };
+  const counts: Record<string, number> = {};
 
   alerts.forEach((a) => {
-    if (a.category && counts[a.category] !== undefined) {
-      counts[a.category]++;
+    if (a.category) {
+      counts[a.category] = (counts[a.category] || 0) + 1;
     }
   });
 
   return Object.entries(counts).map(([name, value]) => ({
-    name: name.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    name: name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     value,
     category: name,
   }));

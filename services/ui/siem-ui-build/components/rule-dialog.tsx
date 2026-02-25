@@ -160,7 +160,7 @@ export function RuleDialog({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-muted-foreground">Category</Label>
+                <Label htmlFor="category" className="text-xs text-muted-foreground">Category</Label>
                 <Select
                   value={form.category}
                   onValueChange={(v) => setForm({ ...form, category: v })}
@@ -173,8 +173,32 @@ export function RuleDialog({
                     <SelectItem value="network_scan">Network Scan</SelectItem>
                     <SelectItem value="brute_force">Brute Force</SelectItem>
                     <SelectItem value="anomaly">Anomaly</SelectItem>
+                    <SelectItem value="trojan">Trojan</SelectItem>
+                    <SelectItem value="malware">Malware</SelectItem>
+                    <SelectItem value="dos">DoS Attack</SelectItem>
+                    <SelectItem value="ddos">DDoS Attack</SelectItem>
+                    <SelectItem value="policy-violation">Policy Violation</SelectItem>
+                    <SelectItem value="protocol-command-decode">Protocol Command</SelectItem>
+                    <SelectItem value="bad-unknown">Bad/Unknown</SelectItem>
+                    <SelectItem value="attempted-recon">Reconnaissance</SelectItem>
+                    <SelectItem value="attempted-dos">Attempted DoS</SelectItem>
+                    <SelectItem value="attempted-admin">Admin Attempt</SelectItem>
+                    <SelectItem value="successful-admin">Successful Admin</SelectItem>
+                    <SelectItem value="misc-activity">Misc Activity</SelectItem>
+                    <SelectItem value="misc-attack">Misc Attack</SelectItem>
+                    <SelectItem value="web-application-attack">Web App Attack</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Ou edite manualmente no campo abaixo se precisar de uma categoria customizada
+                </p>
+                <Input
+                  id="category"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="custom_category"
+                  className="bg-secondary/50 border-border text-foreground text-xs"
+                />
               </div>
             </div>
 
