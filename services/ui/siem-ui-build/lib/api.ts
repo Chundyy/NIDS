@@ -63,6 +63,10 @@ export const rulesApi = {
     apiFetch<void>(`/rules/${id}`, {
       method: "DELETE",
     }),
+  reload: () =>
+    apiFetch<{ status: string; message: string }>("/rules/reload", {
+      method: "POST",
+    }),
 }
 
 // ── Malware / Reports API ────────────────────────────────────────────

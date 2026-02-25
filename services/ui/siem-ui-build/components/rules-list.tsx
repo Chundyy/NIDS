@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Loader2,
   WifiOff,
+  RefreshCw,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -113,6 +114,7 @@ export function RulesList() {
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [editingRule, setEditingRule] = useState<RuleItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<RuleItem | null>(null)
+  const [reloadLoading, setReloadLoading] = useState(false)
 
   // Fetch rules from API or fallback to mock
   const fetchRules = useCallback(async () => {
@@ -226,6 +228,22 @@ export function RulesList() {
       toast.success("Rule deleted locally (API unavailable).")
     }
     setDeleteTarget(null)
+  }
+
+  async function handleReload() {
+    if (!apiAvailable) {
+      toast.error("API unavailable. Cannot reload rules.")
+      return
+    }
+    setReloadLoading(true)
+    try {
+      await rulesApi.reload()
+      toast.success("Suricata rules reloaded successfully!")
+    } catch (error) {
+      toast.error("Failed to reload Suricata rules.")
+    } finally {
+      setReloadLoading(false)
+    }
   }
 
   // ── Render ───────────────────────────────────────────────────────────
@@ -348,10 +366,25 @@ export function RulesList() {
         <span className="text-xs text-muted-foreground">
           Showing {filteredRules.length} of {rules.length} rules
         </span>
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          New Rule
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={handleReload}
+            disabled={reloadLoading || !apiAvailable}
+          >
+            {reloadLoading ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-1.5 h-4 w-4" />
+            )}
+            Reload Suricata
+          </Button>
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            New Rule
+          </Button>
+        </div>
       </div>
 
       {/* Rules Table */}
