@@ -72,7 +72,8 @@ export function RuleDialog({
 
   useEffect(() => {
     if (open) {
-      setForm(initialData ?? defaultForm)
+      // Merge initialData with defaultForm to ensure all fields have values
+      setForm({ ...defaultForm, ...initialData })
     }
   }, [open, initialData])
 

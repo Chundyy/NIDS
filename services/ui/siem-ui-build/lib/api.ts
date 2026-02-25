@@ -2,7 +2,7 @@
 // Change this to your FastAPI backend URL when deploying.
 // In development, the backend runs on your VM at port 8000.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://10.56.109.201:8000"
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://10.10.100.3:8000"
 
 // ── Generic fetcher ──────────────────────────────────────────────────
 
@@ -38,7 +38,17 @@ export interface Rule {
   severity: string
   category: string
   sid?: number
-  action?: string
+  
+  // Campos para regras Suricata
+  action: string
+  protocol: string
+  source_ip: string
+  source_port: string
+  direction: string
+  destination_ip: string
+  destination_port: string
+  message?: string
+  
   last_triggered?: string | null
   synced_to_suricata?: boolean
   created_at?: string

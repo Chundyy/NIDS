@@ -172,6 +172,7 @@ export function RulesList() {
   }
 
   async function handleSubmit(data: RuleFormData) {
+    console.log("🔵 [UI] Submitting rule data:", data)
     if (apiAvailable) {
       try {
         if (dialogMode === "create") {
@@ -513,6 +514,14 @@ export function RulesList() {
                 description: editingRule.description,
                 severity: editingRule.severity,
                 category: editingRule.category,
+                action: editingRule.action,
+                protocol: editingRule.protocol,
+                source_ip: editingRule.source_ip,
+                source_port: editingRule.source_port,
+                direction: editingRule.direction,
+                destination_ip: editingRule.destination_ip,
+                destination_port: editingRule.destination_port,
+                message: editingRule.message || "",
               }
             : null
         }
