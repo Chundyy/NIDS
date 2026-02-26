@@ -76,12 +76,35 @@ CREATE TABLE IF NOT EXISTS daily_reports (
     high_count INTEGER DEFAULT 0,
     medium_count INTEGER DEFAULT 0,
     low_count INTEGER DEFAULT 0,
+    total_alerts INTEGER DEFAULT 0,
+    alerts_critical INTEGER DEFAULT 0,
+    alerts_high INTEGER DEFAULT 0,
+    alerts_medium INTEGER DEFAULT 0,
+    alerts_low INTEGER DEFAULT 0,
     summary TEXT,
     file_path TEXT,
     generated_by VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Initialize eventos_rede table (for network alerts)
+CREATE TABLE IF NOT EXISTS eventos_rede (
+    id SERIAL PRIMARY KEY,
+    src_ip VARCHAR(45),
+    dest_ip VARCHAR(45),
+    porta_destino INTEGER,
+    protocolo VARCHAR(50),
+    severidade_ml INTEGER,
+    confianca_ml FLOAT,
+    alerta_assinatura TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index on src_ip and dest_ip for faster queries
+CREATE INDEX IF NOT EXISTS idx_eventos_src_ip ON eventos_rede(src_ip);
+CREATE INDEX IF NOT EXISTS idx_eventos_dest_ip ON eventos_rede(dest_ip);
+CREATE INDEX IF NOT EXISTS idx_eventos_created_at ON eventos_rede(created_at);
 
 -- Sample daily reports data
 INSERT INTO daily_reports (report_date, total_threats, critical_count, high_count, medium_count, low_count, summary, generated_by) VALUES

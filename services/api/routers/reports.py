@@ -19,6 +19,7 @@ def get_daily_reports():
     cur = conn.cursor()
     cur.execute("""
         SELECT id, report_date, total_threats, critical_count, high_count, medium_count, low_count, 
+               total_alerts, alerts_critical, alerts_high, alerts_medium, alerts_low,
                summary, file_path, generated_by, created_at, updated_at
         FROM daily_reports 
         ORDER BY report_date DESC;
@@ -36,11 +37,16 @@ def get_daily_reports():
             "high_count": row[4],
             "medium_count": row[5],
             "low_count": row[6],
-            "summary": row[7],
-            "file_path": row[8],
-            "generated_by": row[9],
-            "created_at": row[10].isoformat() if row[10] else None,
-            "updated_at": row[11].isoformat() if row[11] else None
+            "total_alerts": row[7],
+            "alerts_critical": row[8],
+            "alerts_high": row[9],
+            "alerts_medium": row[10],
+            "alerts_low": row[11],
+            "summary": row[12],
+            "file_path": row[13],
+            "generated_by": row[14],
+            "created_at": row[15].isoformat() if row[15] else None,
+            "updated_at": row[16].isoformat() if row[16] else None
         })
     return reports
 
@@ -75,23 +81,48 @@ def generate_daily_report(request: GenerateReportRequest = GenerateReportRequest
         medium_count = result[3] or 0
         low_count = result[4] or 0
         
-        summary = f"Daily malware analysis report: {total_threats} threats detected including {critical_count} critical. " \
-                 f"High: {high_count}, Medium: {medium_count}, Low: {low_count}."
+        # Get alerts for the day from eventos_rede table
+        cur.execute("""
+            SELECT COUNT(*), 
+                   SUM(CASE WHEN severidade_ml = 4 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN severidade_ml = 3 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN severidade_ml = 2 THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN severidade_ml = 1 THEN 1 ELSE 0 END)
+            FROM eventos_rede 
+            WHERE DATE(created_at) = %s
+        """, (target_date,))
+        
+        alert_result = cur.fetchone()
+        total_alerts = alert_result[0] or 0
+        alerts_critical = alert_result[1] or 0
+        alerts_high = alert_result[2] or 0
+        alerts_medium = alert_result[3] or 0
+        alerts_low = alert_result[4] or 0
+        
+        summary = f"Daily security report: {total_threats} malware threats detected (Critical: {critical_count}, High: {high_count}, Medium: {medium_count}, Low: {low_count}). " \
+                 f"{total_alerts} network alerts detected (Critical: {alerts_critical}, High: {alerts_high}, Medium: {alerts_medium}, Low: {alerts_low})."
         
         # Insert or update report
         cur.execute("""
-            INSERT INTO daily_reports (report_date, total_threats, critical_count, high_count, medium_count, low_count, summary, generated_by)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'System')
+            INSERT INTO daily_reports (report_date, total_threats, critical_count, high_count, medium_count, low_count, 
+                                      total_alerts, alerts_critical, alerts_high, alerts_medium, alerts_low, summary, generated_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'System')
             ON CONFLICT (report_date) DO UPDATE SET
                 total_threats = EXCLUDED.total_threats,
                 critical_count = EXCLUDED.critical_count,
                 high_count = EXCLUDED.high_count,
                 medium_count = EXCLUDED.medium_count,
                 low_count = EXCLUDED.low_count,
+                total_alerts = EXCLUDED.total_alerts,
+                alerts_critical = EXCLUDED.alerts_critical,
+                alerts_high = EXCLUDED.alerts_high,
+                alerts_medium = EXCLUDED.alerts_medium,
+                alerts_low = EXCLUDED.alerts_low,
                 summary = EXCLUDED.summary,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING id
-        """, (target_date, total_threats, critical_count, high_count, medium_count, low_count, summary))
+        """, (target_date, total_threats, critical_count, high_count, medium_count, low_count, 
+              total_alerts, alerts_critical, alerts_high, alerts_medium, alerts_low, summary))
         
         report_id = cur.fetchone()[0]
         conn.commit()
@@ -105,6 +136,11 @@ def generate_daily_report(request: GenerateReportRequest = GenerateReportRequest
             "high_count": high_count,
             "medium_count": medium_count,
             "low_count": low_count,
+            "total_alerts": total_alerts,
+            "alerts_critical": alerts_critical,
+            "alerts_high": alerts_high,
+            "alerts_medium": alerts_medium,
+            "alerts_low": alerts_low,
             "summary": summary,
             "message": "Report generated successfully"
         }
@@ -171,6 +207,7 @@ def download_report_html(report_id: int):
         # Get report data
         cur.execute("""
             SELECT id, report_date, total_threats, critical_count, high_count, medium_count, low_count, 
+                   total_alerts, alerts_critical, alerts_high, alerts_medium, alerts_low,
                    summary, file_path, generated_by, created_at
             FROM daily_reports 
             WHERE id = %s
@@ -186,8 +223,13 @@ def download_report_html(report_id: int):
         high_count = row[4]
         medium_count = row[5]
         low_count = row[6]
-        summary = row[7]
-        generated_at = row[10]
+        total_alerts = row[7] or 0
+        alerts_critical = row[8] or 0
+        alerts_high = row[9] or 0
+        alerts_medium = row[10] or 0
+        alerts_low = row[11] or 0
+        summary = row[12]
+        generated_at = row[14]
         
         # Get detailed malware list for the day
         cur.execute("""
@@ -207,9 +249,28 @@ def download_report_html(report_id: int):
         
         malware_list = cur.fetchall()
         
+        # Get detailed alerts list for the day
+        cur.execute("""
+            SELECT src_ip, dest_ip, porta_destino, protocolo, severidade_ml, confianca_ml, alerta_assinatura, created_at
+            FROM eventos_rede 
+            WHERE DATE(created_at) = %s
+            ORDER BY 
+                CASE severidade_ml 
+                    WHEN 4 THEN 1 
+                    WHEN 3 THEN 2 
+                    WHEN 2 THEN 3 
+                    ELSE 4 
+                END,
+                created_at DESC
+            LIMIT 20
+        """, (report_date,))
+        
+        alerts_list = cur.fetchall()
+        
         # Get trend data (last 7 days)
         cur.execute("""
-            SELECT report_date, total_threats, critical_count, high_count, medium_count, low_count
+            SELECT report_date, total_threats, critical_count, high_count, medium_count, low_count,
+                   total_alerts, alerts_critical, alerts_high, alerts_medium, alerts_low
             FROM daily_reports 
             WHERE report_date <= %s
             ORDER BY report_date DESC
@@ -237,11 +298,33 @@ def download_report_html(report_id: int):
                 </tr>
             """
         
+        # Build alerts table HTML
+        severity_map = {4: 'CRITICAL', 3: 'HIGH', 2: 'MEDIUM', 1: 'LOW'}
+        alerts_rows = ""
+        for alert in alerts_list:
+            severity_num = alert[4] or 1
+            severity_text = severity_map.get(severity_num, 'LOW')
+            severity_class = severity_text.lower()
+            confidence = alert[5] or 0.0
+            alerts_rows += f"""
+                <tr>
+                    <td>{alert[0] or 'N/A'}</td>
+                    <td>{alert[1] or 'N/A'}</td>
+                    <td>{alert[2] or 'N/A'}</td>
+                    <td>{alert[3] or 'N/A'}</td>
+                    <td><span class="severity-badge {severity_class}">{severity_text}</span></td>
+                    <td>{confidence:.1f}%</td>
+                    <td>{alert[6][:50] + '...' if alert[6] and len(alert[6]) > 50 else alert[6] or 'N/A'}</td>
+                    <td>{alert[7].strftime('%H:%M:%S') if alert[7] else 'N/A'}</td>
+                </tr>
+            """
+        
         # Prepare chart data
         trend_dates = [t[0].strftime('%Y-%m-%d') for t in reversed(trend_data)]
         trend_totals = [t[1] for t in reversed(trend_data)]
         trend_critical = [t[2] for t in reversed(trend_data)]
         trend_high = [t[3] for t in reversed(trend_data)]
+        trend_alerts = [t[6] if len(t) > 6 else 0 for t in reversed(trend_data)]
         
         html_content = generate_html_template(
             report_date=report_date.strftime('%Y-%m-%d'),
@@ -250,14 +333,21 @@ def download_report_html(report_id: int):
             high_count=high_count,
             medium_count=medium_count,
             low_count=low_count,
+            total_alerts=total_alerts,
+            alerts_critical=alerts_critical,
+            alerts_high=alerts_high,
+            alerts_medium=alerts_medium,
+            alerts_low=alerts_low,
             summary=summary,
             malware_rows=malware_rows,
+            alerts_rows=alerts_rows,
             analysis=analysis,
             recommendations=recommendations,
             trend_dates=trend_dates,
             trend_totals=trend_totals,
             trend_critical=trend_critical,
             trend_high=trend_high,
+            trend_alerts=trend_alerts,
             generated_at=generated_at.strftime('%Y-%m-%d %H:%M:%S') if generated_at else 'N/A'
         )
         
@@ -342,8 +432,9 @@ def generate_recommendations(total, critical, high, malware_list):
 
 
 def generate_html_template(report_date, total_threats, critical_count, high_count, medium_count, 
-                          low_count, summary, malware_rows, analysis, recommendations,
-                          trend_dates, trend_totals, trend_critical, trend_high, generated_at):
+                          low_count, total_alerts, alerts_critical, alerts_high, alerts_medium, alerts_low,
+                          summary, malware_rows, alerts_rows, analysis, recommendations,
+                          trend_dates, trend_totals, trend_critical, trend_high, trend_alerts, generated_at):
     """Generate professional HTML report template"""
     return f"""
 <!DOCTYPE html>
@@ -590,6 +681,26 @@ def generate_html_template(report_date, total_threats, critical_count, high_coun
                     <h3>Baixas</h3>
                     <div class="number">{low_count}</div>
                 </div>
+                <div class="stat-card" style="background: #1e3a5f;">
+                    <h3>Total de Alerts</h3>
+                    <div class="number">{total_alerts}</div>
+                </div>
+                <div class="stat-card critical">
+                    <h3>Alerts Críticos</h3>
+                    <div class="number">{alerts_critical}</div>
+                </div>
+                <div class="stat-card high">
+                    <h3>Alerts Altos</h3>
+                    <div class="number">{alerts_high}</div>
+                </div>
+                <div class="stat-card medium">
+                    <h3>Alerts Médios</h3>
+                    <div class="number">{alerts_medium}</div>
+                </div>
+                <div class="stat-card low">
+                    <h3>Alerts Baixos</h3>
+                    <div class="number">{alerts_low}</div>
+                </div>
             </div>
             
             <!-- Analysis Section -->
@@ -636,6 +747,28 @@ def generate_html_template(report_date, total_threats, critical_count, high_coun
                     </thead>
                     <tbody>
                         {malware_rows if malware_rows else '<tr><td colspan="5" style="text-align:center;">Nenhuma ameaça detectada</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Alerts List -->
+            <div class="section">
+                <h2>Alerts da Rede Detectados (Top 20)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IP Origem</th>
+                            <th>IP Destino</th>
+                            <th>Porta</th>
+                            <th>Protocolo</th>
+                            <th>Severidade</th>
+                            <th>Confiança</th>
+                            <th>Assinatura</th>
+                            <th>Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {alerts_rows if alerts_rows else '<tr><td colspan="8" style="text-align:center;">Nenhum alert detectado</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -718,6 +851,16 @@ def generate_html_template(report_date, total_threats, critical_count, high_coun
                         tension: 0.4,
                         fill: false,
                         borderWidth: 2
+                    }},
+                    {{
+                        label: 'Alerts (Total)',
+                        data: {trend_alerts},
+                        borderColor: '#7209b7',
+                        backgroundColor: '#7209b7',
+                        tension: 0.4,
+                        fill: false,
+                        borderWidth: 2,
+                        borderDash: [5, 5]
                     }}
                 ]
             }},
