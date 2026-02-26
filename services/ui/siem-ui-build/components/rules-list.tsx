@@ -552,6 +552,12 @@ export function RulesList() {
                 destination_ip: editingRule.destination_ip,
                 destination_port: editingRule.destination_port,
                 message: editingRule.message || "",
+                content: (editingRule as any).content || "",
+                nocase: (editingRule as any).nocase || false,
+                dns_query: (editingRule as any).dns_query || false,
+                http_uri: (editingRule as any).http_uri || false,
+                http_method: (editingRule as any).http_method || false,
+                rule_options: (editingRule as any).rule_options || "",
               }
             : null
         }

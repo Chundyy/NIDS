@@ -49,6 +49,14 @@ export interface Rule {
   destination_port: string
   message?: string
   
+  // Opções adicionais do Suricata
+  content?: string
+  nocase?: boolean
+  dns_query?: boolean
+  http_uri?: boolean
+  http_method?: boolean
+  rule_options?: string
+  
   last_triggered?: string | null
   synced_to_suricata?: boolean
   created_at?: string
