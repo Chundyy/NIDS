@@ -148,9 +148,6 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <p className="text-xs text-muted-foreground text-center mt-6">
-              {"Default credentials: admin / admin"}
-            </p>
           </div>
 
           <p className="text-xs text-muted-foreground">
