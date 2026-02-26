@@ -15,10 +15,14 @@ except Exception as e:
     print(f"Falha ao carregar ML Engine: {e}")
     app.state.ml_engine = None
 
-# CORS para permitir o frontend em desenvolvimento (Vite em localhost:3000)
+# CORS para permitir o frontend na VM e em localhost
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite todas as origens em desenvolvimento
+    allow_origins=[
+        "http://10.10.100.3:3000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
