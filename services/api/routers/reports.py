@@ -288,13 +288,14 @@ def download_report_html(report_id: int):
         malware_rows = ""
         for malware in malware_list:
             severity_class = malware[2].lower() if malware[2] else 'low'
+            time_str = malware[4].strftime('%H:%M:%S') if malware[4] and hasattr(malware[4], 'strftime') else str(malware[4]) if malware[4] else 'N/A'
             malware_rows += f"""
                 <tr>
                     <td>{malware[0]}</td>
                     <td>{malware[1] or 'Unknown'}</td>
                     <td><span class="severity-badge {severity_class}">{malware[2]}</span></td>
                     <td>{malware[3] or 'N/A'}</td>
-                    <td>{malware[4].strftime('%H:%M:%S') if malware[4] else 'N/A'}</td>
+                    <td>{time_str}</td>
                 </tr>
             """
         
@@ -306,6 +307,7 @@ def download_report_html(report_id: int):
             severity_text = severity_map.get(severity_num, 'LOW')
             severity_class = severity_text.lower()
             confidence = alert[5] or 0.0
+            alert_time = alert[7].strftime('%H:%M:%S') if alert[7] and hasattr(alert[7], 'strftime') else str(alert[7]) if alert[7] else 'N/A'
             alerts_rows += f"""
                 <tr>
                     <td>{alert[0] or 'N/A'}</td>
@@ -315,19 +317,19 @@ def download_report_html(report_id: int):
                     <td><span class="severity-badge {severity_class}">{severity_text}</span></td>
                     <td>{confidence:.1f}%</td>
                     <td>{alert[6][:50] + '...' if alert[6] and len(alert[6]) > 50 else alert[6] or 'N/A'}</td>
-                    <td>{alert[7].strftime('%H:%M:%S') if alert[7] else 'N/A'}</td>
+                    <td>{alert_time}</td>
                 </tr>
             """
         
         # Prepare chart data
-        trend_dates = [t[0].strftime('%Y-%m-%d') for t in reversed(trend_data)]
+        trend_dates = [t[0].strftime('%Y-%m-%d') if hasattr(t[0], 'strftime') else str(t[0]) for t in reversed(trend_data)]
         trend_totals = [t[1] for t in reversed(trend_data)]
         trend_critical = [t[2] for t in reversed(trend_data)]
         trend_high = [t[3] for t in reversed(trend_data)]
         trend_alerts = [t[6] if len(t) > 6 else 0 for t in reversed(trend_data)]
         
         html_content = generate_html_template(
-            report_date=report_date.strftime('%Y-%m-%d'),
+            report_date=report_date.strftime('%Y-%m-%d') if hasattr(report_date, 'strftime') else str(report_date),
             total_threats=total_threats,
             critical_count=critical_count,
             high_count=high_count,
@@ -348,10 +350,10 @@ def download_report_html(report_id: int):
             trend_critical=trend_critical,
             trend_high=trend_high,
             trend_alerts=trend_alerts,
-            generated_at=generated_at.strftime('%Y-%m-%d %H:%M:%S') if generated_at else 'N/A'
+            generated_at=generated_at.strftime('%Y-%m-%d %H:%M:%S') if generated_at and hasattr(generated_at, 'strftime') else str(generated_at) if generated_at else 'N/A'
         )
         
-        filename = f"Security_Report_{report_date}.html"
+        filename = f"Security_Report_{report_date.strftime('%Y-%m-%d') if hasattr(report_date, 'strftime') else str(report_date)}.html"
         
         return Response(
             content=html_content,
