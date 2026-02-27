@@ -122,7 +122,7 @@ export function SettingsPage() {
         <div>
           <h2 className="text-lg font-semibold text-foreground">Settings</h2>
           <p className="text-xs text-muted-foreground">
-            Configure NIDS Sentinel system preferences and integrations.
+            Configure NIDPS Sentinel system preferences and integrations.
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
@@ -385,7 +385,7 @@ export function SettingsPage() {
       <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <InfoField label="Version" value="NIDS Sentinel v1.0.0" />
+            <InfoField label="Version" value="NIDPS Sentinel v1.0.0" />
             <InfoField label="AI Models" value="DistilBERT + Random Forest" />
             <InfoField label="Backend" value="FastAPI + Python" />
             <InfoField label="Frontend" value="Next.js + React" />

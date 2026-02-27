@@ -17,9 +17,9 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'NIDS Sentinel - AI-Powered Intrusion Detection',
+  title: 'NIDPS Sentinel - AI-Powered Intrusion Detection and Prevention',
   description:
-    'Security Information and Event Management dashboard powered by DistilBERT and Random Forest AI models for real-time network intrusion detection.',
+    'Security Information and Event Management dashboard powered by DistilBERT and Random Forest AI models for real-time network intrusion detection and prevention.',
 }
 
 export const viewport: Viewport = {

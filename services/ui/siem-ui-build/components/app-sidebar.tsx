@@ -55,7 +55,7 @@ export function AppSidebar({ activePage, onNavigate }: AppSidebarProps) {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-bold text-foreground tracking-tight">
-              NIDS Sentinel
+              NIDPS Sentinel
             </span>
             <span className="text-[10px] text-muted-foreground tracking-widest uppercase">
               IDS/IPS

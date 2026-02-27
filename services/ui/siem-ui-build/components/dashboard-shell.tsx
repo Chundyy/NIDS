@@ -68,7 +68,7 @@ export function DashboardShell() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <span className="text-muted-foreground text-sm">NIDS Sentinel</span>
+                <span className="text-muted-foreground text-sm">NIDPS Sentinel</span>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>

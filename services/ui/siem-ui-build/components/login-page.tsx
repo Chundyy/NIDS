@@ -54,10 +54,10 @@ export function LoginPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                NIDS Sentinel
+                NIDPS Sentinel
               </h1>
               <p className="text-xs text-muted-foreground tracking-widest uppercase">
-                Intrusion Detection System
+                Intrusion Detection and Prevention System
               </p>
             </div>
           </div>
@@ -151,7 +151,7 @@ export function LoginPage() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {"NIDS Sentinel v1.0 \u2014 AI-Powered Network Defense"}
+            {"NIDPS Sentinel v1.0 \u2014 AI-Powered Network Defense"}
           </p>
         </div>
       </div>
